@@ -82,10 +82,11 @@ export const desert = {
       [-115, -80], [-25, -98], [80, -90], [145, -50], [150, 20], [100, 60],
       [40, 35], [-10, 60], [-15, 115], [-80, 130], [-145, 90], [-155, 0],
     ],
-    halfWidth: 7,
+    halfWidth: 10.5,
     shoulder: 5,
   },
   surface: { grip: 6, offroad: 0.5 },
+  hazard: 'mummy', // see race/hazards.js
 
   sky: { top: '#2f8de8', disc: { color: '#fff6cf', size: 6 } },
   fog: { color: '#f8dfa9', density: 0.0042 },

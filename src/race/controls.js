@@ -6,7 +6,10 @@
 // dragging sideways steers, by as much as you drag; pulling back brakes and
 // then reverses. Lifting the finger coasts.
 //
-// read() returns { steer: -1..1, throttle: 0..1, brake: 0..1 }.
+// Weapons that fire have one more control: the space bar, or the fire button
+// on screen (a second finger, or a quick tap with the first).
+//
+// read() returns { steer: -1..1, throttle: 0..1, brake: 0..1, fire: boolean }.
 
 const KEYS = {
   ArrowLeft: 'left',
@@ -17,6 +20,7 @@ const KEYS = {
   KeyW: 'gas',
   ArrowDown: 'brake',
   KeyS: 'brake',
+  Space: 'fire',
 };
 
 const REACH = 56; // how far the knob travels from the centre, in CSS pixels
@@ -26,7 +30,8 @@ const BRAKE_AT = 0.45; // pull back this far (of the reach) to brake
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
 export function createControls() {
-  const keys = { left: false, right: false, gas: false, brake: false };
+  const keys = { left: false, right: false, gas: false, brake: false, fire: false };
+  let firing = false; // the on-screen fire button is held
   const stick = { pointer: null, x: 0, y: 0 }; // x right, y back, each -1..1
   let enabled = false;
 
@@ -38,7 +43,10 @@ export function createControls() {
   });
   window.addEventListener('keyup', (event) => {
     const action = KEYS[event.code];
-    if (action) keys[action] = false;
+    if (!action) return;
+    keys[action] = false;
+    // Space would otherwise "click" whichever button was used last.
+    if (enabled) event.preventDefault();
   });
   window.addEventListener('blur', release);
 
@@ -111,7 +119,23 @@ export function createControls() {
   }
   zone.addEventListener('contextmenu', (event) => event.preventDefault());
 
+  // ---------- Fire button ----------
+
+  const fireButton = document.getElementById('fire-button');
+  fireButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    fireButton.setPointerCapture(event.pointerId);
+    firing = true;
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    fireButton.addEventListener(type, () => {
+      firing = false;
+    });
+  }
+  fireButton.addEventListener('contextmenu', (event) => event.preventDefault());
+
   function release() {
+    firing = false;
     for (const action of Object.keys(keys)) keys[action] = false;
     if (stick.pointer !== null) letGo();
   }
@@ -136,7 +160,7 @@ export function createControls() {
         else throttle = 1;
       }
 
-      return { steer: clamp(steer, -1, 1), throttle, brake };
+      return { steer: clamp(steer, -1, 1), throttle, brake, fire: keys.fire || firing };
     },
   };
 }

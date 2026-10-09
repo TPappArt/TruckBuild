@@ -1,12 +1,31 @@
 import { linear, setPaint } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
-import { blastGeometry, bombGeometry, boostGeometry, oilGeometry, slowGeometry, stripGeometry, trampolineGeometry } from './props.js';
+import {
+  bangGeometry,
+  boltGeometry,
+  bombGeometry,
+  boostGeometry,
+  FLAKE_HEIGHT,
+  FLAKE_TILE,
+  flakeGeometry,
+  haloGeometry,
+  holeGeometry,
+  ITEM_HALOS,
+  ITEM_RINGS,
+  mummyGeometry,
+  oilGeometry,
+  ringGeometry,
+  shotGeometry,
+  slowGeometry,
+  stripGeometry,
+  trampolineGeometry,
+} from './props.js';
 import { createSession } from './session.js';
 import { buildRaceVehicle } from './vehicle.js';
 import { buildWorld } from './world.js';
 
 // The 3D side of a race: builds the world for a track, runs a session on it,
-// draws the track events and follows the player with a chase camera.
+// draws everything that happens and follows the player with a chase camera.
 
 const worlds = new Map();
 
@@ -16,14 +35,14 @@ function worldFor(theme) {
     const world = buildWorld(theme);
     const length = Math.hypot(...theme.light);
     world.light = theme.light.map((value) => value / length);
-    world.fog = { color: linear(theme.fog.color), density: theme.fog.density };
+    world.fogColor = linear(theme.fog.color);
     worlds.set(theme.id, world);
   }
   return worlds.get(theme.id);
 }
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-const BLAST_TIME = 0.45;
+const BANG_TIME = 0.45;
 
 const ITEM_GEOMETRY = {
   boost: boostGeometry,
@@ -32,6 +51,37 @@ const ITEM_GEOMETRY = {
   trampoline: trampolineGeometry,
 };
 
+function mesh(geometry) {
+  const node = new Node();
+  node.geometry = geometry;
+  return node;
+}
+
+/** A fixed set of nodes handed out afresh each frame, for short-lived things. */
+function createPool() {
+  const nodes = [];
+  let used = 0;
+  return {
+    reset() {
+      used = 0;
+    },
+    /** Returns a node showing `geometry` at the given place and size. */
+    take(geometry, x, y, z, scale = 1, turn = 0) {
+      if (used === nodes.length) nodes.push(new Node());
+      const node = nodes[used++];
+      node.geometry = geometry;
+      node.position = [x, y, z];
+      node.rotation = [0, turn, 0];
+      node.scale = Array.isArray(scale) ? scale : [scale, scale, scale];
+      node.updateWorld();
+      return node;
+    },
+    get active() {
+      return nodes.slice(0, used);
+    },
+  };
+}
+
 export function createRaceScene(renderer, view) {
   let world = null;
   let session = null;
@@ -39,43 +89,46 @@ export function createRaceScene(renderer, view) {
   let time = 0;
 
   // Track events: things standing on the road, and things painted on it.
-  let props = []; // [{ item, node }]
-  let slicks = []; // [{ item, node }]
+  let props = []; // [{ item, node, ring }]
   let strips = []; // [{ strip, node, fast, slow }]
-  let blasts = []; // [{ item, node }]
-  let ground = new Node();
+  let fixedGround = []; // the track's own ground, then the strips
+
+  // Everything short-lived is drawn from pools, rebuilt every frame.
+  const solidPool = createPool(); // bangs, shots, bolts, the mummy
+  const paintPool = createPool(); // rings, slicks, holes: flat on the road
+  const glowPool = createPool(); // halos
+  const flakePool = createPool();
+  const ground = new Node();
+  const drift = [0, 0, 0]; // how far the snow has blown and fallen
 
   const camera = { eye: [0, 5, -10], target: [0, 1, 0], fov: 1, near: 0.5, far: 520 };
   let cameraHeading = 0;
 
   /**
    * Starts a race.
-   * drivers: [{ name, build, isPlayer, lane, pace, ... }] in grid order.
+   * drivers: [{ name, build, isPlayer, lane, pace, attack, ... }] in grid order.
    */
   function start({ theme, drivers, laps }) {
     world = worldFor(theme);
-    session = createSession({ track: world.track, surface: theme.surface, laps, drivers });
+    session = createSession({ track: world.track, surface: theme.surface, hazard: theme.hazard, laps, drivers });
     vehicles = session.racers.map((racer) => buildRaceVehicle(racer.build));
 
     // Baking borrowed the shared paint material; hand it back to the player.
     const player = session.player;
     if (player) setPaint(player.build.paint);
 
-    const mesh = (geometry) => {
-      const node = new Node();
-      node.geometry = geometry;
-      return node;
-    };
     const events = session.events;
     props = [];
-    slicks = [];
-    blasts = [];
     strips = [];
     if (events) {
       for (const item of events.items) {
-        if (item.kind === 'oil') slicks.push({ item, node: mesh(oilGeometry()) });
-        else props.push({ item, node: mesh(ITEM_GEOMETRY[item.kind]()) });
-        if (item.kind === 'bomb') blasts.push({ item, node: mesh(blastGeometry()) });
+        const [colour, inner, outer] = ITEM_RINGS[item.kind];
+        props.push({
+          item,
+          node: item.kind === 'oil' ? null : mesh(ITEM_GEOMETRY[item.kind]()),
+          ring: ringGeometry(colour, inner, outer),
+          halo: haloGeometry(ITEM_HALOS[item.kind][0]),
+        });
       }
       strips = events.strips.map((strip) => ({
         strip,
@@ -84,9 +137,7 @@ export function createRaceScene(renderer, view) {
         slow: stripGeometry(world.track, strip, false),
       }));
     }
-    // Painted layers go on top of the track's own ground, in this order.
-    ground = new Node();
-    ground.children = [world.ground, ...strips.map((entry) => entry.node), ...slicks.map((entry) => entry.node)];
+    fixedGround = [world.ground, ...strips.map((entry) => entry.node)];
 
     time = 0;
     cameraHeading = (player || session.racers[0]).car.heading;
@@ -94,6 +145,7 @@ export function createRaceScene(renderer, view) {
     return session;
   }
 
+  /** Puts everything where the session says it is. */
   function place(dt) {
     session.racers.forEach((racer, i) => {
       const { node, animate } = vehicles[i];
@@ -104,8 +156,21 @@ export function createRaceScene(renderer, view) {
       node.updateWorld();
     });
 
-    props.forEach(({ item, node }, i) => {
-      if (item.kind === 'boost') {
+    solidPool.reset();
+    paintPool.reset();
+    glowPool.reset();
+    const pulse = 1 + 0.08 * Math.sin(time * 5);
+
+    // Pickups, hazards and trampolines, each in its colour-coded ring and halo.
+    props.forEach(({ item, node, ring, halo }, i) => {
+      if (!item.active) return;
+      const [, radius, height, squash] = ITEM_HALOS[item.kind];
+      glowPool.take(halo, item.x, height, item.z, [radius * pulse, radius * squash * pulse, radius * pulse]);
+      paintPool.take(ring, item.x, 0, item.z, pulse);
+
+      if (item.kind === 'oil') {
+        paintPool.take(oilGeometry(), item.x, 0, item.z, 1, item.heading);
+      } else if (item.kind === 'boost') {
         node.position = [item.x, 1.7 + 0.2 * Math.sin(time * 3 + i), item.z];
         node.rotation[1] = time * 2.6 + i;
       } else if (item.kind === 'slow') {
@@ -121,24 +186,87 @@ export function createRaceScene(renderer, view) {
         node.position = [item.x, 0, item.z];
         node.rotation[1] = item.heading;
       }
-      node.updateWorld();
+      node?.updateWorld();
     });
-
-    for (const { item, node } of slicks) {
-      node.position = [item.x, 0, item.z];
-      node.rotation[1] = item.heading;
-    }
     for (const entry of strips) {
       entry.node.geometry = entry.strip.fast ? entry.fast : entry.slow;
     }
-    ground.updateWorld();
 
-    for (const { item, node } of blasts) {
-      const age = (session.time - item.hitAt) / BLAST_TIME;
-      const size = age >= 0 && age < 1 ? 1 + age * 4 : 0;
-      node.position = [item.hitX ?? 0, 1.2, item.hitZ ?? 0];
-      node.scale = [size, size, size];
+    // Shots in flight.
+    for (const shot of session.combat.shots) {
+      solidPool.take(shotGeometry(shot.kind), shot.x, 1.3, shot.z, 1, shot.heading);
+      glowPool.take(haloGeometry('fire'), shot.x, 1.3, shot.z, 1.6);
+    }
+
+    // Things going off: a ball that swells and is gone.
+    for (const bang of session.bangs) {
+      const age = (session.time - bang.at) / BANG_TIME;
+      if (age < 0 || age >= 1) continue;
+      solidPool.take(bangGeometry(bang.kind), bang.x, 1.6, bang.z, 0.7 + age * 1.7);
+      if (bang.kind !== 'dust') glowPool.take(haloGeometry(bang.kind === 'spark' ? 'spark' : 'fire'), bang.x, 1.6, bang.z, 3 + age * 3);
+    }
+
+    placeHazard(dt);
+
+    ground.children = [...fixedGround, ...paintPool.active];
+    ground.updateWorld();
+  }
+
+  /** Draws the track's own hazard, if it has one. */
+  function placeHazard(dt) {
+    const hazard = session.hazard;
+    flakePool.reset();
+    if (!hazard) return;
+
+    if (hazard.kind === 'mummy' && hazard.active) {
+      const { rise, swing, sink } = hazard.timings;
+      const age = hazard.age;
+      // Up out of the ground, a lunge forward, then back down.
+      const up = age < rise ? age / rise : age < rise + swing ? 1 : 1 - (age - rise - swing) / sink;
+      const lunge = age >= rise && age < rise + swing ? Math.sin((Math.PI * (age - rise)) / swing) : 0;
+      const node = solidPool.take(mummyGeometry(), hazard.x, -3.6 * (1 - Math.max(0, up)), hazard.z, 1.15, hazard.heading);
+      node.rotation[0] = lunge * 0.8;
       node.updateWorld();
+      paintPool.take(holeGeometry(), hazard.x, 0, hazard.z);
+      glowPool.take(haloGeometry('bad'), hazard.x, 1.6, hazard.z, 2.8);
+    }
+
+    if (hazard.kind === 'lightning') {
+      const { warning } = hazard.timings;
+      for (const strike of hazard.strikes) {
+        if (strike.age < warning) {
+          // A ring that closes in on the spot as the strike gets nearer.
+          const closing = 1.7 - 0.7 * (strike.age / warning);
+          paintPool.take(ringGeometry('spark', 2.6, 3.4), strike.x, 0, strike.z, closing);
+          glowPool.take(haloGeometry('spark'), strike.x, 0.4, strike.z, [3.4, 1.2, 3.4]);
+        } else {
+          solidPool.take(boltGeometry(), strike.x, 0, strike.z, 1, strike.seed);
+          glowPool.take(haloGeometry('spark'), strike.x, 2, strike.z, 9);
+        }
+      }
+    }
+
+    if (hazard.kind === 'storm') {
+      // Snow always falls here; in a storm it is driven sideways, hard.
+      const wind = 3 + 34 * hazard.strength;
+      drift[0] += hazard.windX * wind * dt;
+      drift[1] += (3.5 + 3 * hazard.strength) * dt;
+      drift[2] += hazard.windZ * wind * dt;
+
+      // The flakes are a block that repeats in every direction. Draw the
+      // four copies nearest the camera, sliding with the wind.
+      const eye = camera.eye;
+      const fall = drift[1] % FLAKE_HEIGHT;
+      const nearest = (value) => {
+        const cell = (value + FLAKE_TILE / 2) / FLAKE_TILE;
+        const base = Math.floor(cell);
+        return cell - base < 0.5 ? [base - 1, base] : [base, base + 1];
+      };
+      for (const i of nearest(eye[0] - drift[0])) {
+        for (const j of nearest(eye[2] - drift[2])) {
+          flakePool.take(flakeGeometry(), i * FLAKE_TILE + drift[0], -fall, j * FLAKE_TILE + drift[2]);
+        }
+      }
     }
   }
 
@@ -171,19 +299,25 @@ export function createRaceScene(renderer, view) {
     renderer.setSize(view.width, view.height, view.pixelRatio);
     const theme = world.theme;
     const cars = vehicles.map((vehicle) => vehicle.node);
-    const standing = props.filter((entry) => entry.item.active).map((entry) => entry.node);
-    const bangs = blasts.filter((entry) => entry.node.scale[0] > 0).map((entry) => entry.node);
+    const standing = props.filter((entry) => entry.item.active && entry.node).map((entry) => entry.node);
+
+    // A snowstorm closes the view in; lightning lights everything up.
+    const hazard = session.hazard;
+    const storm = hazard?.kind === 'storm' ? hazard.strength : 0;
+    const flash = hazard?.kind === 'lightning' && hazard.strikes.some((strike) => strike.age >= hazard.timings.warning) ? 1.6 : 1;
+
     renderer.render({
       camera,
       light: world.light,
       lighting: theme.lighting,
-      fog: world.fog,
-      pulse: theme.pulse ? theme.pulse(time) : 1,
+      fog: { color: world.fogColor, density: theme.fog.density * (1 + 2.2 * storm) },
+      pulse: (theme.pulse ? theme.pulse(time) : 1) * flash,
       sky: world.sky,
       ground,
-      solids: [world.scenery, ...cars, ...standing, ...bangs],
+      solids: [world.scenery, ...cars, ...standing, ...solidPool.active, ...flakePool.active],
       casters: [...cars, ...standing, world.scenery],
       shadow: { strength: theme.shadow },
+      glows: glowPool.active,
     });
   }
 

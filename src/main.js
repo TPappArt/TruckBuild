@@ -128,7 +128,7 @@ function startGame() {
     requestAnimationFrame(() => {
       setTimeout(() => {
         race.start({ theme, drivers: makeGrid(build), laps: GAME.laps });
-        hud.reset();
+        hud.reset(race.session);
         hud.update(race.session);
         sinceFinish = 0;
         resultsShown = false;

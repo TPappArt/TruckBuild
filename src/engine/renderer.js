@@ -44,7 +44,7 @@ uniform vec3 uSun;
 uniform vec3 uSky;
 uniform vec3 uBounce;
 uniform vec3 uFogColor;
-uniform float uPass; // 0 lit, 1 shadow, 2 unlit backdrop
+uniform float uPass; // 0 lit, 1 shadow, 2 unlit backdrop, 3 glow
 uniform float uShadow;
 uniform float uClip;
 uniform float uPulse;
@@ -55,6 +55,16 @@ varying vec3 vParams;
 varying vec2 vGround;
 varying float vFog;
 void main() {
+  if (uPass > 2.5) {
+    // Glow: a see-through tint, strongest where the surface faces the
+    // camera and fading to nothing at the rim, so a plain ball reads as a
+    // soft halo. A tint rather than added light, so it shows up on snow
+    // and sand as well as in the dark.
+    float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
+    float glow = facing * facing * (1.0 - vFog) * uPulse;
+    gl_FragColor = vec4(pow(vColor, vec3(1.0 / 2.2)), min(glow * 0.5, 1.0));
+    return;
+  }
   if (uPass > 1.5) {
     gl_FragColor = vec4(pow(vColor, vec3(1.0 / 2.2)), 1.0);
     return;
@@ -216,6 +226,7 @@ export function createRenderer(canvas) {
    *   solids:   Nodes drawn lit and depth tested,
    *   casters:  Nodes whose shadow falls on the ground (usually also in solids),
    *   shadow:   optional { strength, clipRadius },
+   *   glows:    optional Nodes drawn last as soft see-through halos,
    * }
    * Nodes must have up-to-date world matrices (Node.updateWorld).
    */
@@ -295,6 +306,18 @@ export function createRenderer(canvas) {
     gl.depthMask(true);
     gl.uniform1f(uniforms.uPass, 0);
     for (const solid of scene.solids) draw(solid);
+
+    if (scene.glows?.length) {
+      // Blended over what is there, hidden by anything in front, and
+      // leaving the depth buffer alone so halos never cut into each other.
+      gl.uniform1f(uniforms.uPass, 3);
+      gl.depthMask(false);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+      for (const glow of scene.glows) draw(glow);
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+    }
   }
 
   function setSize(width, height, pixelRatio = 1) {

@@ -1,4 +1,4 @@
-import { PAINTS, randomBuild } from '../parts/catalog.js';
+import { findPart, PAINTS, randomBuild } from '../parts/catalog.js';
 
 // Who lines up for a race: three computer rivals in random contraptions,
 // with the player at the back of the grid.
@@ -13,9 +13,9 @@ const NAMES = ['Sparky', 'Dusty', 'Frosty', 'Nitro', 'Clunk', 'Zippy', 'Rattle',
 //   clumsy  how often they take their foot off and drift off line
 //           (1 = every 5 to 11 seconds, 0 = never)
 export const RIVALS = [
-  { pace: 0.72, lane: -2.8, weave: 1.6, clumsy: 1.0 },
-  { pace: 0.64, lane: 2.8, weave: 2.2, clumsy: 1.3 },
-  { pace: 0.56, lane: -1.2, weave: 2.8, clumsy: 1.6 },
+  { pace: 0.72, lane: -4.2, weave: 2.4, clumsy: 1.0 },
+  { pace: 0.64, lane: 4.2, weave: 3.3, clumsy: 1.3 },
+  { pace: 0.56, lane: -1.8, weave: 4.2, clumsy: 1.6 },
 ];
 
 function shuffled(list) {
@@ -31,10 +31,13 @@ export function makeGrid(playerBuild) {
   // Rivals never share the player's colour, or each other's.
   const paints = shuffled(PAINTS.filter((paint) => paint.hex !== playerBuild.paint));
   const names = shuffled(NAMES);
+  // What a racer's weapon does in a race comes from the part it has fitted.
+  const armed = (driver) => ({ ...driver, attack: findPart('weapon', driver.build.weapon)?.attack ?? null });
+
   const rivals = RIVALS.map((rival, i) => ({
     ...rival,
     name: names[i],
     build: { ...randomBuild(), paint: paints[i].hex },
   }));
-  return [...rivals, { name: 'You', isPlayer: true, build: { ...playerBuild } }];
+  return [...rivals, { name: 'You', isPlayer: true, build: { ...playerBuild } }].map(armed);
 }

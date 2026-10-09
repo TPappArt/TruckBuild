@@ -91,6 +91,10 @@ function paintRoad(paint, track, road) {
   const n = track.count;
   const half = track.halfWidth;
   const at = (i, offset) => {
+    // On the inside of a tight bend the edge of the road would cross over
+    // itself; stop just short of the centre of the bend instead.
+    const bend = track.curvature[track.wrap(Math.round(i))];
+    if (bend * offset > 0) offset = Math.sign(offset) * Math.min(Math.abs(offset), 0.85 / Math.abs(bend));
     const p = track.pointAt(i, offset);
     return [p.x, p.z];
   };

@@ -1,5 +1,7 @@
 import { autopilot, collide, createCar, locate, speedLimits, stepCar, stepFlight } from './car.js';
+import { createCombat } from './combat.js';
 import { createEvents } from './events.js';
+import { createHazard } from './hazards.js';
 
 // The rules of a race, with no rendering: grid, countdown, laps, positions
 // and the finish. It can be run headless (scripts/simulate-race.mjs does),
@@ -17,19 +19,20 @@ const LAPSE_EVERY = [5, 11];
 const LAPSE_LASTS = [0.7, 1.5];
 
 /**
- * drivers: [{ name, isPlayer, lane, pace, weave, clumsy }] in grid order (first = pole).
+ * drivers: [{ name, isPlayer, lane, pace, weave, clumsy, attack }] in grid order (first = pole).
  * surface: { grip, offroad } from the track theme.
+ * hazard:  the track's own hazard, by name (see hazards.js), if it has one.
  * random:  source of randomness; pass a seeded one for repeatable races.
- * events:  false to race on an empty road.
+ * events:  false to race on an empty road with no hazard.
  */
-export function createSession({ track, surface, laps = 3, drivers, random = Math.random, events = true }) {
+export function createSession({ track, surface, hazard, laps = 3, drivers, random = Math.random, events = true }) {
   const limits = speedLimits(track, surface);
   const between = ([low, high]) => low + (high - low) * random();
 
   // Two-by-two grid behind the line.
   const racers = drivers.map((driver, slot) => {
     const row = Math.floor(slot / 2);
-    const car = createCar(track, -(3 + row * 4), slot % 2 ? 3.2 : -3.2);
+    const car = createCar(track, -(3 + row * 4), slot % 2 ? 4.6 : -4.6);
     return {
       ...driver,
       car,
@@ -49,12 +52,22 @@ export function createSession({ track, surface, laps = 3, drivers, random = Math
   const cars = racers.map((racer) => racer.car);
   const player = racers.find((racer) => racer.isPlayer) || null;
 
+  // Things going off, for the scene to draw: [{ x, z, kind, at }].
+  const bangs = [];
+  const bang = (x, z, kind) => {
+    bangs.push({ x, z, kind, at: session.time });
+    if (bangs.length > 12) bangs.shift();
+  };
+
   const session = {
     track,
     laps,
     racers,
     player,
-    events: events ? createEvents(track, random) : null,
+    bangs,
+    events: events ? createEvents(track, random, bang) : null,
+    hazard: events && hazard ? createHazard(hazard, track, random, bang) : null,
+    combat: createCombat(track, random, bang),
     phase: 'countdown', // 'countdown' | 'racing' | 'finished' (the player is home)
     countdown: COUNTDOWN,
     time: 0,
@@ -64,7 +77,7 @@ export function createSession({ track, surface, laps = 3, drivers, random = Math
   let carry = 0;
   let playerInput = { steer: 0, throttle: 0, brake: 0 };
 
-  /** Advances the race. `input` is the player's { steer, throttle, brake }. */
+  /** Advances the race. `input` is the player's { steer, throttle, brake, fire }. */
   function update(dt, input) {
     if (input) playerInput = input;
     carry += dt;
@@ -100,6 +113,8 @@ export function createSession({ track, surface, laps = 3, drivers, random = Math
     }
 
     session.events?.update(dt, session.time, racers);
+    session.hazard?.update(dt, session.time, racers);
+    session.combat.update(dt, session.time, racers, Boolean(playerInput.fire));
 
     // Places: finishers in finishing order, then everyone else by distance.
     const order = [...racers].sort((a, b) => {

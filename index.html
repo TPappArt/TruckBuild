@@ -67,6 +67,15 @@
           <div id="hud-banner" aria-live="polite" hidden></div>
           <div id="hud-toast" aria-live="polite" hidden></div>
 
+          <!-- Shown only when the player's weapon is one that fires. -->
+          <button id="fire-button" type="button" aria-label="Fire" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="6.5" />
+              <path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5" />
+            </svg>
+            <span id="fire-label">Fire</span>
+          </button>
+
           <!-- One-finger joystick: appears under the finger, anywhere on screen. -->
           <div id="joystick" aria-hidden="true" hidden>
             <div id="joystick-knob"></div>

@@ -12,7 +12,8 @@ from parts, then race it. "TruckBuild" is a working title; see
 - **Race:** a three-lap circuit race against three computer rivals in random
   contraptions, on one of three tracks: Electric Swamp, Pyramid Desert and
   Snowy Mountains. Random events on the road (pickups, hazards, trampolines
-  and strips) shake things up. Two more race types are planned.
+  and strips), a hazard unique to each track, and working weapons shake
+  things up. Two more race types are planned.
 
 | Category | Parts |
 | --- | --- |
@@ -77,6 +78,7 @@ A new body also needs `mounts`: where the axles, weapons and extras attach.
 | Steer | Left / Right, or A / D | Drag left or right; further turns harder |
 | Accelerate | Up, or W | Automatic while the finger is down |
 | Brake, then reverse | Down, or S | Pull the finger back |
+| Fire (blaster, cannon) | Space | Fire button, bottom right |
 
 On a touch screen the whole race view is a floating joystick: it appears
 wherever the finger lands, so it suits either hand. Lifting the finger coasts.
@@ -89,7 +91,20 @@ so holding the accelerator and steering gets a beginner round. Leaving the
 road is slow, and a soft wall at the edge of the shoulder keeps everyone on
 the circuit. Snow has less than half the grip of the desert.
 
-For now every build drives the same. Parts are looks only.
+For now every build drives the same. Wheels, bodies and extras are looks
+only; weapons work (below).
+
+### Weapons
+
+| Weapon | In a race |
+| --- | --- |
+| Twin Blaster, Cannon | Fired with the fire button, then 10 seconds to reload. The shot follows the road and drifts toward the nearest car ahead, so aiming is forgiving. |
+| Hammer, Buzz Saw, Flipper | Always on. Any car that comes within about 3.5 m of the front of yours gets knocked. |
+
+A hit does exactly what a bomb does: the car is tossed in the air and loses
+its speed. A car that has just been knocked cannot be knocked again for a
+couple of seconds. Rivals use their weapons too, but are slow on the trigger.
+The rules are in `src/race/combat.js`.
 
 ### Rivals
 
@@ -116,6 +131,20 @@ Pickups and bombs vanish when hit and reappear somewhere else; oil moves on
 after a while. There are more good things than bad. Rivals do not avoid
 anything, which is part of why they lose.
 
+Everything is colour coded with a halo and a ring on the road, so it can be
+read without reading: **green** helps, **red** hurts, **blue** bounces.
+
+### Track hazards
+
+Each track has one hazard of its own (`src/race/hazards.js`). All of them
+give warning, so they can be dodged.
+
+| Track | Hazard |
+| --- | --- |
+| Pyramid Desert | Every 14 to 26 seconds a mummy climbs out of the road ahead of one of the cars and takes a swing at anything in reach. |
+| Electric Swamp | Every 4 to 9 seconds lightning strikes the road near where a car is heading. A ring closes in on the spot for a second first. |
+| Snowy Mountains | Every 13 to 22 seconds a snowstorm blows across for a few seconds, pushing every car sideways and closing in the view. |
+
 Tracks are flat and defined by a dozen control points each
 (`src/race/tracks/`). A theme also sets its sky, fog, lighting, road colours
 and scenery. Adding a track means adding one file there and listing it in
@@ -134,7 +163,8 @@ model, the rivals, the events or a layout.
 
 Rendering is a small WebGL renderer written for this project (`src/engine/`):
 one shader with soft toy-like lighting, distance fog and a flat projected
-shadow. It has no dependencies and no textures.
+shadow, plus see-through halos for glowing things. It has no dependencies
+and no textures.
 
 It is fast because of how little it draws. Anything static is merged into a
 single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
@@ -174,7 +204,9 @@ src/garage/             build phase: turntable scene, thumbnails, picker UI
 src/race/car.js         driving model, computer driver, collisions
 src/race/session.js     race rules: grid, countdown, laps, places, finish
 src/race/events.js      random track events: pickups, hazards, trampolines, strips
-src/race/props.js       what those events look like
+src/race/hazards.js     each track's own hazard: mummy, lightning, snowstorm
+src/race/combat.js      weapons: shots, always-on melee, reloading
+src/race/props.js       what events, hazards and shots look like
 src/race/track.js       the centre line: sampling, projection, curvature
 src/race/world.js       builds ground, scenery and sky for a track
 src/race/tracks/        the three track themes

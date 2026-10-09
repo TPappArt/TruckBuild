@@ -4,6 +4,12 @@ import { kit } from './kit.js';
 // names the body mount it uses in `slot`:
 //   top    origin on the deck; the weapon sits on it and aims toward +z
 //   front  origin on the nose; the weapon reaches forward toward +z
+//
+// `attack` says what the weapon does in a race (see race/combat.js):
+//   { type: 'shot', shot }   fired with the fire button, then reloads
+//   { type: 'melee', reach } always on: knocks any car that comes within
+//                            `reach` metres of the front of this one
+// Either way, a hit does what a bomb does.
 
 const TAU = Math.PI * 2;
 
@@ -57,7 +63,7 @@ function hammer() {
   const k = kit();
   k.box('dark', [0.44, 0.3, 0.5], { at: [0, 0.15, -0.05], r: 0.09 });
   k.cyl('accent', { r: 0.15, len: 0.56 }, { at: [0, 0.34, -0.05] });
-  const arm = k.sub({ at: [0, 0.34, -0.05], rot: [-0.75, 0, 0], motion: { type: 'swing', amount: 0.1, speed: 1.6 } });
+  const arm = k.sub({ at: [0, 0.34, -0.05], rot: [-0.75, 0, 0], motion: { type: 'swing', amount: 0.1, speed: 1.6, raceAmount: 0.6, raceSpeed: 7 } });
   arm.box('metal', [0.12, 0.12, 1.0], { at: [0, 0, 0.55], r: 0.05 });
   arm.cyl('red', { r: 0.2, len: 0.5, axis: 'y' }, { at: [0, 0, 1.1] });
   arm.cyl('white', { r: 0.215, len: 0.12, caps: 'none', axis: 'y' }, { at: [0, 0, 1.1] });
@@ -82,9 +88,9 @@ function buzzSaw() {
 }
 
 export const WEAPONS = [
-  { id: 'blaster', name: 'Twin Blaster', slot: 'top', unit: blaster },
-  { id: 'cannon', name: 'Cannon', slot: 'top', unit: cannon },
-  { id: 'flipper', name: 'Flipper', slot: 'front', unit: flipper },
-  { id: 'hammer', name: 'Hammer', slot: 'top', unit: hammer },
-  { id: 'buzz-saw', name: 'Buzz Saw', slot: 'front', unit: buzzSaw },
+  { id: 'blaster', name: 'Twin Blaster', slot: 'top', unit: blaster, attack: { type: 'shot', shot: 'bolts' } },
+  { id: 'cannon', name: 'Cannon', slot: 'top', unit: cannon, attack: { type: 'shot', shot: 'shell' } },
+  { id: 'flipper', name: 'Flipper', slot: 'front', unit: flipper, attack: { type: 'melee', reach: 3.8 } },
+  { id: 'hammer', name: 'Hammer', slot: 'top', unit: hammer, attack: { type: 'melee', reach: 3.4 } },
+  { id: 'buzz-saw', name: 'Buzz Saw', slot: 'front', unit: buzzSaw, attack: { type: 'melee', reach: 3.6 } },
 ];

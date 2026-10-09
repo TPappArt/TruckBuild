@@ -13,6 +13,7 @@ import { createTrack } from '../src/race/track.js';
 import { TRACKS } from '../src/race/tracks/index.js';
 import { seeded } from '../src/race/world.js';
 
+const ATTACKS = [{ type: 'shot', shot: 'shell' }, { type: 'melee', reach: 3.4 }, null];
 const LAPS = 3;
 const RACES = 5;
 const TIME_LIMIT = 900;
@@ -29,11 +30,13 @@ for (const theme of TRACKS) {
     const session = createSession({
       track,
       surface: theme.surface,
+      hazard: theme.hazard,
       laps: LAPS,
       random: seeded(100 + race),
       drivers: [
-        ...RIVALS.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}` })),
-        { name: 'Stand-in player', lane: 0, pace: 1, isPlayer: false },
+        // One of each kind of weapon, so both get exercised.
+        ...RIVALS.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}`, attack: ATTACKS[i] })),
+        { name: 'Stand-in player', lane: 0, pace: 1, isPlayer: false, attack: null },
       ],
     });
 

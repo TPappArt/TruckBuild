@@ -475,6 +475,47 @@ body[data-screen='race'] #fullscreen-button {
   background: #e4463a;
 }
 
+/* Fire button, for weapons that shoot. It drains when used and refills as
+   the weapon reloads; yellow means ready. */
+#fire-button {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(max(26px, env(safe-area-inset-bottom)) + 4px);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  border: 4px solid var(--paper);
+  border-radius: 50%;
+  /* The lighter part sweeps round as it reloads. */
+  background: conic-gradient(#3b4f8f calc(var(--reloaded, 1) * 360deg), var(--navy-deep) 0);
+  color: var(--paper);
+  box-shadow: 0 4px 0 rgb(13 29 77 / 45%);
+  font-size: 0.9375rem;
+  font-weight: 900;
+  font-style: italic;
+  touch-action: none;
+}
+
+#fire-button.ready {
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 4px 0 var(--sun-deep);
+}
+
+#fire-button.ready:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--sun-deep);
+}
+
+#fire-button svg {
+  width: 34px;
+  height: 34px;
+}
+
 /* One-finger joystick. The whole screen is the touch area; the ring and
    knob are only a picture of where the finger is. */
 #drive-zone {

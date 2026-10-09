@@ -1,3 +1,4 @@
+import { RELOAD } from './combat.js';
 import { createTrack } from './track.js';
 import { TRACKS } from './tracks/index.js';
 
@@ -23,6 +24,11 @@ const EVENT_NOTES = {
   trampoline: ['Boing!', true],
   'fast-strip': ['Speed strip!', true],
   'slow-strip': ['Sticky strip!', false],
+  mummy: ['Mummy!', false],
+  zap: ['Zapped!', false],
+  storm: ['Snowstorm! Hold on', false],
+  hit: ['Ouch! Hit', false],
+  scored: ['Got one!', true],
 };
 const NOTE_TIME = 1.6;
 
@@ -39,6 +45,8 @@ export function createHud() {
   const time = $('hud-time');
   const banner = $('hud-banner');
   const toast = $('hud-toast');
+  const fire = $('fire-button');
+  const fireLabel = $('fire-label');
   let shownEvent = null;
 
   function update(session) {
@@ -65,6 +73,14 @@ export function createHud() {
       toast.classList.toggle('bad', !good);
     }
     toast.hidden = !shownEvent || session.time - shownEvent.at > NOTE_TIME || player.finished;
+
+    // The fire button empties when used and fills back up as the weapon reloads.
+    if (!fire.hidden) {
+      const left = player.reload ?? 0;
+      fire.style.setProperty('--reloaded', (1 - left / RELOAD).toFixed(3));
+      fire.classList.toggle('ready', left <= 0);
+      text(fireLabel, left > 0 ? String(Math.ceil(left)) : 'Fire');
+    }
   }
 
   // Seconds since the player started their final lap.
@@ -74,11 +90,14 @@ export function createHud() {
     return session.time - finalLapStarted;
   }
 
-  function reset() {
+  /** Call at the start of a race, with the session about to be run. */
+  function reset(session) {
     finalLapStarted = null;
     shownEvent = null;
     banner.hidden = true;
     toast.hidden = true;
+    // Only weapons that fire need a button; the others are always on.
+    fire.hidden = session.player.attack?.type !== 'shot';
   }
 
   /** Fills in and shows the results sheet. */

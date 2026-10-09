@@ -24,7 +24,8 @@ export const EFFECTS = {
   boost: { time: 2.6, speed: 1.4 }, // speed pickup
   slow: { time: 2.6, speed: 0.5 }, // slow pickup
   slip: { time: 1.5, grip: 0.06, steering: 0.4 }, // oil
-  stun: { time: 1.2, hop: 1.7 }, // bomb: tossed in the air, no control
+  stun: { time: 1.2, hop: 1.7, mercy: 2.5 }, // knocked: tossed in the air, no control
+  zap: { time: 0.85 }, // a lighter knock, from lightning
   strip: { fast: 1.45, slow: 0.5 }, // while on a speed or sticky strip
   flight: { time: 1.5, distance: 70, height: 8 }, // trampoline
 };
@@ -52,9 +53,13 @@ export function createCar(track, gridIndex, gridOffset) {
     hitWall: false,
 
     // Track events. Timers count down in seconds; 0 means not in effect.
-    effects: { boost: 0, slow: 0, slip: 0, stun: 0 },
+    // `safe` is a spell of immunity after being knocked, so a car cannot be
+    // knocked again before its driver has had a chance to recover.
+    effects: { boost: 0, slow: 0, slip: 0, stun: 0, safe: 0 },
+    stunTime: 0, // how long the current knock lasts in all
     zone: 0, // on a strip right now: +1 speed, -1 sticky, 0 neither
     flight: null, // set while a trampoline has the car in the air
+    push: [0, 0], // outside force this step, as an acceleration (wind)
 
     // For drawing only: height off the ground and extra spin.
     lift: 0,
@@ -73,6 +78,9 @@ export function stepCar(car, input, dt, track, surface) {
 
   const stunned = effects.stun > 0;
   if (stunned) input = NO_INPUT;
+
+  car.vx += car.push[0] * dt;
+  car.vz += car.push[1] * dt;
   const slipping = effects.slip > 0;
 
   car.steer += (clamp(input.steer, -1, 1) - car.steer) * Math.min(1, dt * TUNING.steerResponse);
@@ -124,9 +132,10 @@ export function stepCar(car, input, dt, track, surface) {
   car.x += car.vx * dt;
   car.z += car.vz * dt;
 
-  // A bombed car is tossed up and spun round once.
-  const tossed = stunned ? 1 - effects.stun / EFFECTS.stun.time : 1;
-  car.lift = stunned ? Math.sin(Math.PI * tossed) * EFFECTS.stun.hop : 0;
+  // A knocked car is tossed up and spun round once.
+  const tossed = stunned ? 1 - effects.stun / car.stunTime : 1;
+  const hop = (EFFECTS.stun.hop * car.stunTime) / EFFECTS.stun.time;
+  car.lift = stunned ? Math.sin(Math.PI * tossed) * hop : 0;
   car.twirl = stunned ? tossed * Math.PI * 2 : 0;
 
   locate(car, track);
@@ -151,6 +160,20 @@ export function stepCar(car, input, dt, track, surface) {
     car.offset = side * track.limit;
     car.hitWall = true;
   }
+}
+
+/**
+ * Knocks a car: it is tossed in the air and loses its speed and any boost.
+ * This is what bombs, weapons and track hazards all do. Returns false if the
+ * car could not be knocked just now (in flight, or still recovering).
+ */
+export function knock(car, time = EFFECTS.stun.time) {
+  if (car.flight || car.effects.safe > 0) return false;
+  car.effects.stun = time;
+  car.stunTime = time;
+  car.effects.boost = 0;
+  car.effects.safe = time + EFFECTS.stun.mercy;
+  return true;
 }
 
 /** Throws the car into the air, to land further down the track. */

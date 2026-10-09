@@ -1,4 +1,4 @@
-import { EFFECTS, launch } from './car.js';
+import { EFFECTS, knock, launch } from './car.js';
 
 // Random events on the track. Three families, two of each:
 //
@@ -18,7 +18,7 @@ import { EFFECTS, launch } from './car.js';
 // This file only decides what happens; drawing is in scene.js and props.js.
 
 // More good things than bad: it is meant to be fun, not punishing.
-const COUNTS = { boost: 6, slow: 2, bomb: 2, oil: 2, trampoline: 2 };
+const COUNTS = { boost: 9, slow: 3, bomb: 3, oil: 3, trampoline: 3 };
 const STRIPS = 2;
 
 // How close a car's centre has to be to set each one off, in metres.
@@ -29,7 +29,8 @@ const OIL_MOVES = [16, 28]; // seconds an oil patch stays put
 const STRIP_FLIPS = [6, 12]; // seconds a strip stays fast or slow
 const STRIP_LENGTH = 44; // metres
 
-export function createEvents(track, random) {
+/** `bang(x, z, kind)` is called when something goes off, for the scene to draw. */
+export function createEvents(track, random, bang = () => {}) {
   const between = ([low, high]) => low + (high - low) * random();
   const items = [];
   const strips = [];
@@ -85,9 +86,6 @@ export function createEvents(track, random) {
     item.active = false;
     item.timer = RESPAWN[item.kind];
     item.hitAt = time;
-    // Where it was hit, for the bang. The item itself is about to move.
-    item.hitX = item.x;
-    item.hitZ = item.z;
   }
 
   /** Applies events to every racer. `time` is the race clock. */
@@ -142,8 +140,8 @@ export function createEvents(track, random) {
           effects.boost = 0;
           take(item, time);
         } else if (item.kind === 'bomb') {
-          effects.stun = EFFECTS.stun.time;
-          effects.boost = 0;
+          if (!knock(car)) continue; // still recovering from the last knock
+          bang(item.x, item.z, 'blast');
           take(item, time);
         } else if (item.kind === 'oil') {
           if (effects.slip > 0) continue; // already sliding; no need to say so again

@@ -93,10 +93,11 @@ export const swamp = {
       [-110, -70], [-40, -95], [25, -65], [85, -95], [140, -55], [135, 20], [90, 55],
       [95, 110], [30, 128], [-22, 90], [-75, 118], [-135, 80], [-112, 20], [-138, -28],
     ],
-    halfWidth: 7,
+    halfWidth: 10.5,
     shoulder: 5,
   },
   surface: { grip: 5.5, offroad: 0.42 },
+  hazard: 'lightning', // see race/hazards.js
 
   sky: { top: '#0a0f2e', disc: { color: '#d8f6ff', size: 4.5 } },
   fog: { color: '#1b4a48', density: 0.0062 },
