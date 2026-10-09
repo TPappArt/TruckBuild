@@ -5,12 +5,17 @@ import { PAINTS, randomBuild } from '../parts/catalog.js';
 
 const NAMES = ['Sparky', 'Dusty', 'Frosty', 'Nitro', 'Clunk', 'Zippy', 'Rattle', 'Bolt', 'Pickle', 'Gizmo'];
 
-// Grid order, pole first. `pace` is the share of full speed a rival drives
-// at; `lane` is how far right of the centre line it likes to run, in metres.
-const RIVALS = [
-  { pace: 0.985, lane: -2.8 },
-  { pace: 0.955, lane: 2.8 },
-  { pace: 0.925, lane: -1.2 },
+// Grid order, pole first. This is a game for young children, so the rivals
+// are meant to lose to anyone who keeps the car roughly on the road:
+//   pace    share of a good driver's speed they manage
+//   lane    how far right of the centre line they like to run, in metres
+//   weave   how far they wander either side of that lane, in metres
+//   clumsy  how often they take their foot off and drift off line
+//           (1 = every 5 to 11 seconds, 0 = never)
+export const RIVALS = [
+  { pace: 0.72, lane: -2.8, weave: 1.6, clumsy: 1.0 },
+  { pace: 0.64, lane: 2.8, weave: 2.2, clumsy: 1.3 },
+  { pace: 0.56, lane: -1.2, weave: 2.8, clumsy: 1.6 },
 ];
 
 function shuffled(list) {

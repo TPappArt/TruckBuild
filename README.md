@@ -11,7 +11,8 @@ from parts, then race it. "TruckBuild" is a working title; see
   on a turntable.
 - **Race:** a three-lap circuit race against three computer rivals in random
   contraptions, on one of three tracks: Electric Swamp, Pyramid Desert and
-  Snowy Mountains. Two more race types are planned.
+  Snowy Mountains. Random events on the road (pickups, hazards, trampolines
+  and strips) shake things up. Two more race types are planned.
 
 | Category | Parts |
 | --- | --- |
@@ -90,6 +91,31 @@ the circuit. Snow has less than half the grip of the desert.
 
 For now every build drives the same. Parts are looks only.
 
+### Rivals
+
+This is a game for young children, so the rivals are meant to lose to anyone
+who keeps the car roughly on the road. They drive well below full pace, weave
+about, and every few seconds take their foot off and drift off line. A rival
+that gets ahead of the player slows down more the further ahead it is, so
+the pack stays in sight. Their numbers are in `src/race/grid.js`.
+
+### Track events
+
+Each race scatters these at random (`src/race/events.js`):
+
+| Family | Event | What it does |
+| --- | --- | --- |
+| Pickup | Lightning bolt | Speed boost for a few seconds |
+| Pickup | Snail | Slows the car for a few seconds |
+| Hazard | Bomb | Tosses the car in the air; it loses its speed |
+| Hazard | Oil | Grip and steering go for a moment |
+| Modifier | Trampoline | Throws the car about 70 m down the track |
+| Modifier | Strip | One side of the road speeds cars up (green arrows) or slows them down (red bars) while they are on it, and flips between the two every 6 to 12 seconds |
+
+Pickups and bombs vanish when hit and reappear somewhere else; oil moves on
+after a while. There are more good things than bad. Rivals do not avoid
+anything, which is part of why they lose.
+
 Tracks are flat and defined by a dozen control points each
 (`src/race/tracks/`). A theme also sets its sky, fog, lighting, road colours
 and scenery. Adding a track means adding one file there and listing it in
@@ -99,9 +125,10 @@ and scenery. Adding a track means adding one file there and listing it in
 npm run simulate
 ```
 
-runs a full race on every track with computer drivers and no graphics, and
-reports times and how long each car spent off the road or on the wall. Run it
-after changing the driving model, the rivals or a layout.
+runs seeded races on every track with no graphics: the three rivals against
+a stand-in for a competent player. It reports wins, times, and how long each
+car spent off the road or on the wall. Run it after changing the driving
+model, the rivals, the events or a layout.
 
 ## 3D engine
 
@@ -146,6 +173,8 @@ src/parts/              the part catalogue and the kit parts are modelled with
 src/garage/             build phase: turntable scene, thumbnails, picker UI
 src/race/car.js         driving model, computer driver, collisions
 src/race/session.js     race rules: grid, countdown, laps, places, finish
+src/race/events.js      random track events: pickups, hazards, trampolines, strips
+src/race/props.js       what those events look like
 src/race/track.js       the centre line: sampling, projection, curvature
 src/race/world.js       builds ground, scenery and sky for a track
 src/race/tracks/        the three track themes
@@ -153,7 +182,7 @@ src/race/scene.js       3D side of a race and the chase camera
 src/race/vehicle.js     merges a build into a few meshes for racing
 src/race/hud.js         place, lap, time, countdown, results, track picker
 src/race/controls.js    keyboard and one-finger joystick
-src/race/grid.js        who lines up: rivals' names, builds and pace
+src/race/grid.js        who lines up: rivals' names, builds and how badly they drive
 src/engine/             shape builders, scene nodes, materials, baking, WebGL renderer
 src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking

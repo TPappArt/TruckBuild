@@ -19,7 +19,18 @@ export const TUNING = {
   radius: 1.35, // collision circle
 };
 
+// What track events (see events.js) do to a car, and for how long.
+export const EFFECTS = {
+  boost: { time: 2.6, speed: 1.4 }, // speed pickup
+  slow: { time: 2.6, speed: 0.5 }, // slow pickup
+  slip: { time: 1.5, grip: 0.06, steering: 0.4 }, // oil
+  stun: { time: 1.2, hop: 1.7 }, // bomb: tossed in the air, no control
+  strip: { fast: 1.45, slow: 0.5 }, // while on a speed or sticky strip
+  flight: { time: 1.5, distance: 70, height: 8 }, // trampoline
+};
+
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+const NO_INPUT = { steer: 0, throttle: 0, brake: 0 };
 
 export function createCar(track, gridIndex, gridOffset) {
   const start = track.pointAt(gridIndex, gridOffset);
@@ -39,6 +50,15 @@ export function createCar(track, gridIndex, gridOffset) {
     along: 0,
     onRoad: true,
     hitWall: false,
+
+    // Track events. Timers count down in seconds; 0 means not in effect.
+    effects: { boost: 0, slow: 0, slip: 0, stun: 0 },
+    zone: 0, // on a strip right now: +1 speed, -1 sticky, 0 neither
+    flight: null, // set while a trampoline has the car in the air
+
+    // For drawing only: height off the ground and extra spin.
+    lift: 0,
+    twirl: 0,
   };
 }
 
@@ -48,6 +68,13 @@ export function createCar(track, gridIndex, gridOffset) {
  * surface = { grip, offroad } from the track's theme.
  */
 export function stepCar(car, input, dt, track, surface) {
+  const effects = car.effects;
+  for (const name of Object.keys(effects)) effects[name] = Math.max(0, effects[name] - dt);
+
+  const stunned = effects.stun > 0;
+  if (stunned) input = NO_INPUT;
+  const slipping = effects.slip > 0;
+
   car.steer += (clamp(input.steer, -1, 1) - car.steer) * Math.min(1, dt * TUNING.steerResponse);
 
   const fx = Math.sin(car.heading);
@@ -57,9 +84,19 @@ export function stepCar(car, input, dt, track, surface) {
   let forward = car.vx * fx + car.vz * fz;
   let sideways = car.vx * rx + car.vz * rz;
 
-  const top = car.maxSpeed * (car.onRoad ? 1 : surface.offroad);
+  // Top speed, as changed by whatever the car has driven through.
+  let pace = 1;
+  if (effects.boost > 0) pace *= EFFECTS.boost.speed;
+  if (car.zone > 0) pace *= EFFECTS.strip.fast;
+  if (effects.slow > 0) pace *= EFFECTS.slow.speed;
+  if (car.zone < 0) pace *= EFFECTS.strip.slow;
+  pace = clamp(pace, 0.45, 1.6);
+  const top = car.maxSpeed * pace * (car.onRoad ? 1 : surface.offroad);
+  // Boosts kick in hard rather than building slowly.
+  const power = TUNING.power * (pace > 1 ? 2.6 : 1);
+
   if (input.throttle > 0) {
-    forward += TUNING.power * input.throttle * (1 - forward / top) * dt;
+    forward += power * input.throttle * (1 - forward / top) * dt;
   }
   if (input.brake > 0) {
     if (forward > 0.5) forward = Math.max(0, forward - TUNING.brake * input.brake * dt);
@@ -68,7 +105,11 @@ export function stepCar(car, input, dt, track, surface) {
   // Engine braking when off the throttle, and heavy going in the rough.
   const drag = car.onRoad ? (input.throttle > 0 ? 0.02 : 0.3) : 1.4;
   forward -= forward * drag * dt;
-  sideways *= Math.exp(-surface.grip * dt);
+  // Going faster than currently allowed (a boost ran out, a sticky strip).
+  if (forward > top) forward -= (forward - top) * 2.5 * dt;
+  if (stunned) forward *= Math.exp(-5 * dt);
+
+  sideways *= Math.exp(-surface.grip * (slipping ? EFFECTS.slip.grip : 1) * dt);
 
   car.vx = fx * forward + rx * sideways;
   car.vz = fz * forward + rz * sideways;
@@ -77,10 +118,16 @@ export function stepCar(car, input, dt, track, surface) {
   // Steering needs some speed to bite, and eases off as speed builds.
   const bite = clamp(forward / 6, -1, 1);
   const fade = 1 - TUNING.turnFade * Math.min(1, Math.abs(forward) / TUNING.maxSpeed);
-  car.heading -= car.steer * TUNING.turn * bite * fade * dt;
+  const authority = slipping ? EFFECTS.slip.steering : 1;
+  car.heading -= car.steer * TUNING.turn * bite * fade * authority * dt;
 
   car.x += car.vx * dt;
   car.z += car.vz * dt;
+
+  // A bombed car is tossed up and spun round once.
+  const tossed = stunned ? 1 - effects.stun / EFFECTS.stun.time : 1;
+  car.lift = stunned ? Math.sin(Math.PI * tossed) * EFFECTS.stun.hop : 0;
+  car.twirl = stunned ? tossed * Math.PI * 2 : 0;
 
   locate(car, track);
 
@@ -106,6 +153,46 @@ export function stepCar(car, input, dt, track, surface) {
   }
 }
 
+/** Throws the car into the air, to land further down the track. */
+export function launch(car, track) {
+  const room = track.halfWidth - 2;
+  car.flight = {
+    time: 0,
+    from: car.index + car.along / track.spacing,
+    offset: clamp(car.offset, -room, room),
+  };
+  car.effects.slip = 0;
+  car.effects.stun = 0;
+}
+
+/** Advances a car that is in the air. It follows the road and cannot be steered. */
+export function stepFlight(car, dt, track) {
+  const { time, distance, height } = EFFECTS.flight;
+  const flight = car.flight;
+  flight.time += dt;
+  const t = Math.min(1, flight.time / time);
+
+  const at = track.pointAt(flight.from + (distance * t) / track.spacing, flight.offset);
+  car.x = at.x;
+  car.z = at.z;
+  car.heading = at.heading;
+  car.lift = 4 * height * t * (1 - t);
+  car.twirl = 0;
+  car.steer = 0;
+
+  // Come down moving, at a good clip, pointing along the road.
+  const speed = Math.max(car.speed, car.maxSpeed * 0.85);
+  car.speed = speed;
+  car.vx = Math.sin(car.heading) * speed;
+  car.vz = Math.cos(car.heading) * speed;
+  locate(car, track);
+
+  if (t >= 1) {
+    car.flight = null;
+    car.lift = 0;
+  }
+}
+
 /** Refreshes the car's track position from its world position. */
 export function locate(car, track) {
   const at = track.project(car.x, car.z, car.index);
@@ -124,8 +211,9 @@ export function speedLimits(track, surface) {
   const limits = new Float32Array(n);
   // Largest curvature the steering can follow at speed v:
   //   curvature * v <= hold * (1 - turnFade * v / maxSpeed)
-  // `hold` is a little under the full steering rate, and less on slippery
-  // surfaces. Raise the 0.9 to make the rivals braver in corners.
+  // `hold` is set high because sliding scrubs speed off anyway, so these are
+  // the limits of a good driver. Each rival then drives at a fraction of
+  // them (its `pace`), which is what makes rivals fast or slow.
   const hold = 1.7 * TUNING.turn * Math.sqrt(Math.min(1, surface.grip / 7));
   for (let i = 0; i < n; i++) {
     // Look at the tightest bit of the next few metres, not just this sample.
@@ -146,14 +234,24 @@ export function speedLimits(track, surface) {
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /**
- * Computer driver: aims at a point further down its lane and keeps to the
- * corner speed limits. `rival` holds its personality:
- *   { lane (metres right of centre), pace (0..1 of full speed) }
+ * Computer driver: aims at a point further down its lane and keeps to a
+ * share of the corner speed limits.
+ *
+ * rival = {
+ *   lane     metres right of centre it likes to run,
+ *   pace     share of a good driver's speed it manages (0..1),
+ *   weave    how far it wanders either side of its lane, in metres,
+ *   phase    offsets its weaving from the other rivals',
+ *   lapse    set while it is having a clumsy moment: { steer } it holds
+ *            instead of driving properly, with its foot off the accelerator,
+ * }
  * Returns an input for stepCar.
  */
-export function autopilot(car, rival, track, limits, others) {
+export function autopilot(car, rival, track, limits, others, time = 0) {
+  if (rival.lapse) return { steer: rival.lapse.steer, throttle: 0, brake: 0 };
+
+  let lane = rival.lane + (rival.weave || 0) * Math.sin(time * 0.9 + (rival.phase || 0));
   // Ease toward the far side of a car that is close ahead in the same lane.
-  let lane = rival.lane;
   for (const other of others) {
     if (other === car) continue;
     const gap = track.wrap(other.index - car.index);
@@ -184,6 +282,7 @@ export function collide(cars) {
     for (let j = i + 1; j < cars.length; j++) {
       const a = cars[i];
       const b = cars[j];
+      if (a.flight || b.flight) continue; // nothing to hit up there
       const dx = b.x - a.x;
       const dz = b.z - a.z;
       const distance = Math.hypot(dx, dz);

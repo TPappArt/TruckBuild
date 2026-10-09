@@ -450,6 +450,31 @@ body[data-screen='race'] #fullscreen-button {
     0 0 24px rgb(13 29 77 / 60%);
 }
 
+/* What just happened to you on the track: green for good, red for bad. */
+#hud-toast {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border: 3px solid var(--paper);
+  border-radius: 999px;
+  color: var(--paper);
+  font-size: 1.25rem;
+  font-weight: 900;
+  font-style: italic;
+  white-space: nowrap;
+  text-shadow: none;
+}
+
+#hud-toast.good {
+  background: #1f9d55;
+}
+
+#hud-toast.bad {
+  background: #e4463a;
+}
+
 /* One-finger joystick. The whole screen is the touch area; the ring and
    knob are only a picture of where the finger is. */
 #drive-zone {

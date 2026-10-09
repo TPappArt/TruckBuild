@@ -13,6 +13,19 @@ export function formatTime(seconds) {
   return `${minutes}:${rest.toFixed(1).padStart(4, '0')}`;
 }
 
+// What to say when a track event happens to the player, and whether it is
+// good news (shown in green) or bad (red).
+const EVENT_NOTES = {
+  boost: ['Speed boost!', true],
+  slow: ['Snail! Slowed down', false],
+  bomb: ['Boom!', false],
+  oil: ['Oil! Slippery', false],
+  trampoline: ['Boing!', true],
+  'fast-strip': ['Speed strip!', true],
+  'slow-strip': ['Sticky strip!', false],
+};
+const NOTE_TIME = 1.6;
+
 /** Sets text only when it changed, so the page is not re-laid-out every frame. */
 function text(element, value) {
   if (element.textContent !== value) element.textContent = value;
@@ -25,6 +38,8 @@ export function createHud() {
   const lap = $('hud-lap');
   const time = $('hud-time');
   const banner = $('hud-banner');
+  const toast = $('hud-toast');
+  let shownEvent = null;
 
   function update(session) {
     const player = session.player;
@@ -39,6 +54,17 @@ export function createHud() {
     else if (session.phase === 'racing' && player.lap === session.laps - 1 && lastLapAt(session) < 2) message = 'Final lap';
     banner.hidden = message === '';
     text(banner, message);
+
+    // A short note when something on the track gets the player.
+    const event = player.lastEvent;
+    if (event && event !== shownEvent) {
+      shownEvent = event;
+      const [note, good] = EVENT_NOTES[event.kind];
+      text(toast, note);
+      toast.classList.toggle('good', good);
+      toast.classList.toggle('bad', !good);
+    }
+    toast.hidden = !shownEvent || session.time - shownEvent.at > NOTE_TIME || player.finished;
   }
 
   // Seconds since the player started their final lap.
@@ -50,7 +76,9 @@ export function createHud() {
 
   function reset() {
     finalLapStarted = null;
+    shownEvent = null;
     banner.hidden = true;
+    toast.hidden = true;
   }
 
   /** Fills in and shows the results sheet. */
