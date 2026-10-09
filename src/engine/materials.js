@@ -9,7 +9,8 @@ export function linear(hex) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((c) => Math.pow(c / 255, 2.2));
 }
 
-const material = (hex, { spec = 0.25, shine = 30, glow = 0 } = {}) => ({
+/** Makes a material. Scenery uses this directly for one-off colours. */
+export const material = (hex, { spec = 0.25, shine = 30, glow = 0 } = {}) => ({
   color: linear(hex),
   spec, // highlight strength
   shine, // highlight tightness
@@ -32,7 +33,13 @@ export const materials = {
   floor: material('#eef2fb', { spec: 0 }),
   checkDark: material('#2b3350', { spec: 0 }),
   checkLight: material('#ffffff', { spec: 0 }),
+  sky: material('#ffffff', { spec: 0 }),
 };
+
+/** A mesh's `role` is either a name from the table above or a material itself. */
+export function resolveMaterial(role) {
+  return (typeof role === 'string' ? materials[role] : role) || materials.dark;
+}
 
 export function setPaint(hex) {
   materials.paint.color = linear(hex);

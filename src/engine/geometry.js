@@ -463,6 +463,29 @@ export function stretch(geometry, sx, sy, sz) {
   return geometry;
 }
 
+/**
+ * Returns a copy with hard facets: every triangle gets its own flat normal.
+ * Used for scenery such as rocks, crystals and mountains, where the
+ * chiselled low-poly look is the point. Triangle count is unchanged.
+ */
+export function facet(geometry) {
+  const { positions: p, indices } = geometry;
+  const positions = [];
+  const normals = [];
+  const out = [];
+  for (let i = 0; i < indices.length; i += 3) {
+    const n = faceNormal(p, indices[i], indices[i + 1], indices[i + 2]);
+    const len = Math.hypot(n[0], n[1], n[2]) || 1;
+    for (let k = 0; k < 3; k++) {
+      const v = indices[i + k] * 3;
+      positions.push(p[v], p[v + 1], p[v + 2]);
+      normals.push(n[0] / len, n[1] / len, n[2] / len);
+      out.push(i + k);
+    }
+  }
+  return meshData(positions, normals, out);
+}
+
 /** Axis-aligned bounds of a shape: { min: [x, y, z], max: [x, y, z] }. */
 export function bounds(geometry) {
   if (!geometry.bounds) {

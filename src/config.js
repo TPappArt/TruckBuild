@@ -12,6 +12,9 @@ export const GAME = {
   // was in the background.
   maxFrameTime: 0.1,
 
+  // Laps in a race.
+  laps: 3,
+
   // Art budget: the most triangles a single part mesh may use.
   // `npm run check` enforces it.
   triangleBudget: 200,

@@ -11,7 +11,7 @@ import { kit, taperBottom, taperTop } from './kit.js';
 //   front    weapons that stick out ahead (flipper, saw)
 //   rearTop  spoilers and fins, at the top of the tail
 //   rear     things bolted to the back (booster)
-//   side     the right-hand side; side parts are mirrored onto the left
+//   side     the +x (left) side; side parts are mirrored onto the other
 
 function kart() {
   const k = kit();
@@ -72,7 +72,7 @@ function tub() {
   k.box('paint', [1.2, 0.62, 2.3], { at: [0, 0.36, 0], r: 0.16, deform: taperBottom(0.62, 0.78, 0.84) });
   k.box('white', [1.34, 0.12, 2.44], { at: [0, 0.7, 0], r: 0.06 });
   k.quad('glass', [1.1, 2.2], { at: [0, 0.765, 0] });
-  // Tap on the left rim.
+  // Tap on one rim.
   k.cyl('metal', { r: 0.06, len: 0.32, seg: 6, caps: 'start', axis: 'y' }, { at: [-0.56, 0.92, 0.35] });
   k.cyl('metal', { r: 0.05, len: 0.3, seg: 6, caps: 'start' }, { at: [-0.42, 1.04, 0.35] });
   // Rubber duck riding up front.

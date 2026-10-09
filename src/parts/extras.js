@@ -4,8 +4,8 @@ import { kit } from './kit.js';
 // origin) and names the body mount it uses in `slot`:
 //   rearTop  origin on the top of the tail; the part rises from it
 //   rear     origin on the back face; the part extends toward -z
-//   side     origin on the right flank; the part extends toward +x and is
-//            mirrored onto the left, so `unit()` is one side only
+//   side     origin on the +x flank; the part extends toward +x and is
+//            mirrored onto the other side, so `unit()` is one side only
 
 const TAU = Math.PI * 2;
 

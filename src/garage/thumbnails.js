@@ -35,7 +35,7 @@ export function createThumbnailer(size = 192) {
         far: distance + box.radius * 2,
       },
       light: LIGHT,
-      root: holder,
+      solids: [holder],
     });
     return canvas.toDataURL('image/png');
   };

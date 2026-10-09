@@ -38,6 +38,8 @@
           </svg>
         </button>
 
+        <button id="race-button" type="button">Race</button>
+
         <button id="shuffle-button" class="round-button" type="button" aria-label="Random build">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
@@ -48,6 +50,40 @@
             <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
           </svg>
         </button>
+
+        <!-- Shown during a race, over the 3D view. -->
+        <div id="hud" hidden>
+          <div id="hud-place"><span id="hud-place-number">1</span><span id="hud-place-suffix">st</span></div>
+          <div id="hud-info">
+            <span id="hud-lap">Lap 1/3</span>
+            <span id="hud-time">0:00.0</span>
+          </div>
+          <button id="quit-button" class="round-button" type="button" aria-label="Leave the race">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+          <div id="hud-banner" aria-live="polite" hidden></div>
+
+          <div id="touch-controls" hidden>
+            <div class="touch-pad">
+              <button id="touch-left" class="touch-button" type="button" aria-label="Steer left">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5L7 12l8.5 7.5z" /></svg>
+              </button>
+              <button id="touch-right" class="touch-button" type="button" aria-label="Steer right">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 4.5L17 12l-8.5 7.5z" /></svg>
+              </button>
+            </div>
+            <div class="touch-pad">
+              <button id="touch-brake" class="touch-button" type="button" aria-label="Brake and reverse">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8.5L12 17l7.5-8.5z" /></svg>
+              </button>
+              <button id="touch-gas" class="touch-button" type="button" aria-label="Accelerate">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 15.5L12 7l7.5 8.5z" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <section id="panel" aria-label="Parts">
@@ -55,6 +91,22 @@
         <div id="parts" role="listbox"></div>
       </section>
     </main>
+
+    <div id="track-picker" class="sheet" hidden>
+      <h2 id="track-picker-title" class="sheet-title">Pick a track</h2>
+      <div id="track-list"></div>
+      <button id="track-back" class="plain-button" type="button">Back to the garage</button>
+    </div>
+
+    <div id="results" class="sheet" hidden>
+      <h2 id="results-title" class="sheet-title">Finish!</h2>
+      <ol id="results-list"></ol>
+      <div class="sheet-actions">
+        <button id="results-again" class="big-button" type="button">Race again</button>
+        <button id="results-tracks" class="plain-button" type="button">Change track</button>
+        <button id="results-garage" class="plain-button" type="button">Garage</button>
+      </div>
+    </div>
 
     <div id="start">
       <h1 id="start-title">TruckBuild</h1>

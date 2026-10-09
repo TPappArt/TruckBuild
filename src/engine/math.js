@@ -7,9 +7,11 @@ export function identity() {
   return m;
 }
 
+const scratch = new Float32Array(16);
+
 /** out = a * b. `out` may be the same array as `a` or `b`. */
 export function multiply(out, a, b) {
-  const r = new Float32Array(16);
+  const r = scratch; // reused: this runs many times a frame
   for (let col = 0; col < 4; col++) {
     for (let row = 0; row < 4; row++) {
       r[col * 4 + row] =

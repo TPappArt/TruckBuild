@@ -153,7 +153,32 @@ button:focus-visible {
 }
 
 #shuffle-button {
+  right: auto;
+  left: max(12px, env(safe-area-inset-left));
   bottom: 12px;
+}
+
+/* The way out of the garage and onto a track. */
+#race-button {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 12px;
+  min-width: 132px;
+  min-height: 52px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--sun-deep);
+  font-size: 1.25rem;
+  font-weight: 900;
+  font-style: italic;
+}
+
+#race-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--sun-deep);
 }
 
 /* ---------- Part picker ---------- */
@@ -333,6 +358,296 @@ button:focus-visible {
   }
 }
 
+/* ---------- Race: the 3D view takes the whole screen ---------- */
+
+body[data-screen='race'] #garage {
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
+body[data-screen='race'] #panel,
+body[data-screen='race'] #paints,
+body[data-screen='race'] #shuffle-button,
+body[data-screen='race'] #race-button {
+  display: none;
+}
+
+body[data-screen='race'] #game {
+  cursor: default;
+}
+
+/* Below the quit button, which has the corner during a race. */
+body[data-screen='race'] #fullscreen-button {
+  top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+}
+
+#hud {
+  position: absolute;
+  inset: 0;
+  /* Taps pass through to nothing in particular; only the buttons react. */
+  pointer-events: none;
+  text-shadow:
+    0 2px 0 var(--navy-deep),
+    0 0 12px rgb(13 29 77 / 55%);
+}
+
+#hud button {
+  pointer-events: auto;
+  text-shadow: none;
+}
+
+#hud-place {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+}
+
+#hud-place-number {
+  font-size: 3.5rem;
+}
+
+#hud-place-suffix {
+  font-size: 1.5rem;
+}
+
+#hud-info {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#quit-button {
+  top: max(12px, env(safe-area-inset-top));
+}
+
+#hud-banner {
+  position: absolute;
+  top: 30%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: clamp(3rem, 16vmin, 7rem);
+  font-weight: 900;
+  font-style: italic;
+  color: var(--sun);
+  text-shadow:
+    0 0.06em 0 var(--navy-deep),
+    0 0 24px rgb(13 29 77 / 60%);
+}
+
+/* On-screen arrows: steering under the left thumb, pedals under the right. */
+#touch-controls {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.touch-pad {
+  display: flex;
+  gap: 12px;
+}
+
+.touch-button {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  padding: 0;
+  border: 3px solid rgb(255 255 255 / 85%);
+  border-radius: 50%;
+  background: rgb(19 42 107 / 55%);
+  touch-action: none;
+}
+
+.touch-button svg {
+  width: 38px;
+  height: 38px;
+  fill: var(--paper);
+}
+
+.touch-button.held {
+  background: var(--sun);
+  border-color: var(--paper);
+}
+
+.touch-button.held svg {
+  fill: var(--ink);
+}
+
+/* ---------- Sheets: track picker and results ---------- */
+
+.sheet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding:
+    max(20px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
+  overflow-y: auto;
+  background: rgb(13 29 77 / 88%);
+  text-align: center;
+}
+
+.sheet-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 7vmin, 3rem);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.big-button {
+  min-width: 190px;
+  min-height: 54px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--sun-deep);
+  font-size: 1.1875rem;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.plain-button {
+  min-height: 46px;
+  padding: 0 20px;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-radius: 14px;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+#track-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(100%, 420px);
+}
+
+.track-card {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 8px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 5px 0 var(--navy-deep);
+  text-align: left;
+}
+
+.track-card:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 var(--navy-deep);
+}
+
+.track-card canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.track-name {
+  font-size: 1.25rem;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.15;
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  #track-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(100%, 860px);
+    gap: 16px;
+  }
+
+  .track-card {
+    grid-template-columns: minmax(0, 1fr);
+    text-align: center;
+    padding: 10px 10px 14px;
+  }
+}
+
+#results-list {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 380px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.result {
+  display: grid;
+  grid-template-columns: 1.4em 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 12%);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-you {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.result-paint {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+}
+
+.result-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-time {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
 /* ---------- Start screen: the tap that dismisses it unlocks fullscreen ---------- */
 
 #start {
@@ -400,6 +715,8 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .card:active,
   .round-button:active,
+  .track-card:active,
+  #race-button:active,
   #start-button:active {
     transform: none;
   }

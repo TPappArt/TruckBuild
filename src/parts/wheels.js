@@ -8,6 +8,8 @@ import { kit } from './kit.js';
 //                 applies to. Its outer side faces +x.
 //   place(mounts) all of them, positioned for a body, standing on y = 0.
 //   rideHeight    how far above the ground the body's axle line sits.
+//   drive         how it moves in a race: { type: 'wheels', radius } roll and
+//                 steer, { type: 'legs' } stride, { type: 'tracks' } stay put.
 
 const TAU = Math.PI * 2;
 
@@ -120,6 +122,7 @@ export const WHEELS = [
     id: 'kart-wheels',
     name: 'Kart Wheels',
     rideHeight: 0.36,
+    drive: { type: 'wheels', radius: 0.36 },
     unit: kartWheel,
     place: (mounts) => atCorners(kartWheel(), mounts, 0.18, 0.36),
   },
@@ -127,6 +130,7 @@ export const WHEELS = [
     id: 'monster-wheels',
     name: 'Monster Wheels',
     rideHeight: 0.66,
+    drive: { type: 'wheels', radius: 0.66 },
     unit: monsterWheel,
     place: (mounts) => atCorners(monsterWheel(), mounts, 0.28, 0.66),
   },
@@ -134,6 +138,7 @@ export const WHEELS = [
     id: 'tank-treads',
     name: 'Tank Treads',
     rideHeight: 0.3,
+    drive: { type: 'tracks' },
     unit: track,
     place: (mounts) => onSides(track(mounts.axles.front - mounts.axles.rear + 0.8), mounts, 0.22, 0),
   },
@@ -141,6 +146,7 @@ export const WHEELS = [
     id: 'mech-legs',
     name: 'Mech Legs',
     rideHeight: 1.0,
+    drive: { type: 'legs', swing: 0.5 },
     unit: mechLeg,
     place: (mounts) => onSides(mechLeg(), mounts, 0, 1.0),
   },
@@ -148,6 +154,7 @@ export const WHEELS = [
     id: 'spider-legs',
     name: 'Spider Legs',
     rideHeight: 0.72,
+    drive: { type: 'legs', swing: 0.3 },
     unit: spiderLeg,
     place: (mounts) => {
       const group = atCorners(spiderLeg(), mounts, -0.05, 0.72);

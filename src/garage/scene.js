@@ -1,7 +1,6 @@
 import { meshData } from '../engine/geometry.js';
 import { setPaint } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
-import { createRenderer } from '../engine/renderer.js';
 import { kit } from '../parts/kit.js';
 import { buildVehicle } from '../vehicle.js';
 
@@ -53,8 +52,7 @@ function buildTurntable() {
 // Overshoots a little before settling: the "pop" when a part is swapped in.
 const easeOutBack = (t) => 1 + 2.7 * (t - 1) ** 3 + 1.7 * (t - 1) ** 2;
 
-export function createGarageScene(canvas, view) {
-  const renderer = createRenderer(canvas);
+export function createGarageScene(renderer, view) {
   const ground = buildTurntable();
   const turntable = new Node();
   const camera = { eye: [0, 0, 0], target: [0, 0, 0], fov: FOV };
@@ -147,15 +145,18 @@ export function createGarageScene(canvas, view) {
 
     turntable.rotation[1] = yaw;
     ground.rotation[1] = yaw;
+    turntable.updateWorld();
+    ground.updateWorld();
     camera.target = [0, focusY, 0];
     camera.eye = [0, focusY + Math.sin(pitch) * distance, Math.cos(pitch) * distance];
 
     renderer.render({
       camera,
       light: LIGHT,
-      root: turntable,
       ground,
-      shadow: { radius: TURNTABLE_RADIUS, role: 'floor' },
+      solids: [turntable],
+      casters: [turntable],
+      shadow: { strength: 0.26, clipRadius: TURNTABLE_RADIUS },
     });
   }
 

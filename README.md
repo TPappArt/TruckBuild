@@ -5,8 +5,13 @@ fullscreen. You start by building a truck, car, tank or stranger contraption
 from parts, then race it. "TruckBuild" is a working title; see
 [Renaming the game](#renaming-the-game).
 
-**What exists so far:** the build phase. Pick one part from each of four
-categories and see the result on a turntable. The race is not built yet.
+**What exists so far:** the build phase and the first race type.
+
+- **Garage:** pick one part from each of four categories and see the result
+  on a turntable.
+- **Race:** a three-lap circuit race against three computer rivals in random
+  contraptions, on one of three tracks: Electric Swamp, Pyramid Desert and
+  Snowy Mountains. Two more race types are planned.
 
 | Category | Parts |
 | --- | --- |
@@ -64,17 +69,54 @@ There are no model files. Parts are written in code with a small shape kit
 A new body also needs `mounts`: where the axles, weapons and extras attach.
 `src/parts/bodies.js` documents them.
 
+## Racing
+
+| | Keyboard | Touch screen |
+| --- | --- | --- |
+| Steer | Left / Right, or A / D | Left and right arrows, bottom left |
+| Accelerate | Up, or W | Up arrow, bottom right |
+| Brake, then reverse | Down, or S | Down arrow, bottom right |
+
+The on-screen arrows appear on touch devices, and on anything else the first
+time the screen is touched.
+
+Driving is deliberately forgiving (`src/race/car.js`): a car is a point with
+a heading and a velocity, and sideways speed bleeds away at a rate set by the
+track's grip. Turning too hard scrubs speed off rather than spinning the car,
+so holding the accelerator and steering gets a beginner round. Leaving the
+road is slow, and a soft wall at the edge of the shoulder keeps everyone on
+the circuit. Snow has less than half the grip of the desert.
+
+For now every build drives the same. Parts are looks only.
+
+Tracks are flat and defined by a dozen control points each
+(`src/race/tracks/`). A theme also sets its sky, fog, lighting, road colours
+and scenery. Adding a track means adding one file there and listing it in
+`tracks/index.js`.
+
+```sh
+npm run simulate
+```
+
+runs a full race on every track with computer drivers and no graphics, and
+reports times and how long each car spent off the road or on the wall. Run it
+after changing the driving model, the rivals or a layout.
+
 ## 3D engine
 
 Rendering is a small WebGL renderer written for this project (`src/engine/`):
-one shader with soft toy-like lighting and a flat projected shadow. It was
-chosen because it has no dependencies and is plenty for parts this simple.
+one shader with soft toy-like lighting, distance fog and a flat projected
+shadow. It has no dependencies and no textures.
 
-The part models do not depend on it. Shape builders return plain arrays
-(positions, normals, indices), so moving to three.js or another engine later
-means replacing `src/engine/renderer.js` and `node.js`, not remodelling parts.
-That decision is worth revisiting before the race is built, since tracks,
-physics and effects are where an engine starts to pay for itself.
+It is fast because of how little it draws. Anything static is merged into a
+single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
+scenery is one draw call, and a car is two to five however elaborate the
+build. A race is around 40 draw calls and 25-35 thousand triangles. The
+ground is a stack of flat painted layers drawn without a depth test.
+
+The part models do not depend on the renderer. Shape builders return plain
+arrays (positions, normals, indices), so the models could move to another
+engine without being remade.
 
 ## How fullscreen works
 
@@ -93,21 +135,30 @@ is the exception.
 ## Layout
 
 ```
-index.html              page shell: garage, start screen, meta tags
+index.html              page shell: garage, race HUD, sheets, start screen
 manifest.webmanifest    home screen install: name, icons, fullscreen display
 styles/main.css         layout for portrait and landscape, safe areas, touch
-src/config.js           game name, triangle budget, tuning constants
-src/main.js             boot: wires everything together, saves the build
+src/config.js           game name, laps, triangle budget, tuning constants
+src/main.js             boot, and moving between the garage and a race
 src/vehicle.js          assembles a vehicle from a build
 src/parts/              the part catalogue and the kit parts are modelled with
 src/garage/             build phase: turntable scene, thumbnails, picker UI
-src/engine/             shape builders, scene nodes, materials, WebGL renderer
+src/race/car.js         driving model, computer driver, collisions
+src/race/session.js     race rules: grid, countdown, laps, places, finish
+src/race/track.js       the centre line: sampling, projection, curvature
+src/race/world.js       builds ground, scenery and sky for a track
+src/race/tracks/        the three track themes
+src/race/scene.js       3D side of a race and the chase camera
+src/race/vehicle.js     merges a build into a few meshes for racing
+src/race/hud.js         place, lap, time, countdown, results, track picker
+src/race/controls.js    keyboard and on-screen driving controls
+src/race/grid.js        who lines up: rivals' names, builds and pace
+src/engine/             shape builders, scene nodes, materials, baking, WebGL renderer
 src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking
 src/loop.js             frame loop, paused while the tab is hidden
-src/input.js            mouse, touch and keyboard state; for the race, unused so far
 icons/                  placeholder icons
-scripts/                dev server, part check and rename script
+scripts/                dev server, part check, race simulation, rename script
 ```
 
 The player's build is saved in the browser (`localStorage`) and restored on

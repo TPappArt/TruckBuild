@@ -9,7 +9,7 @@ import { Node } from '../engine/node.js';
 //   k.cyl('metal', { r: 0.1, len: 0.8, axis: 'z' }, { at: [0, 0.5, 1] });
 //   return k.node;
 //
-// Units are metres. +x is the vehicle's right, +y is up, +z is forward.
+// Units are metres. +z is forward, +y is up and +x is the vehicle's left.
 // The first argument is always a material role from engine/materials.js.
 //
 // Triangle cost per call:
