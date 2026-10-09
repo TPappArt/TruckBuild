@@ -1,14 +1,12 @@
 import { GAME } from './config.js';
 
-// Keeps the canvas backing store matched to its on-screen size, on any
-// screen density, through rotation, window resizes and fullscreen changes.
+// Tracks the canvas's on-screen size and the pixel density to render at,
+// through rotation, window resizes, fullscreen changes and layout changes.
 //
-// `view.width` / `view.height` are in CSS pixels, which is the unit the game
-// should think in. The context is pre-scaled so drawing in CSS pixels comes
-// out sharp on high-density screens.
+// `view.width` / `view.height` are in CSS pixels. Multiply by
+// `view.pixelRatio` for the backing-store size.
 export function createViewport(canvas) {
-  const ctx = canvas.getContext('2d');
-  const view = { width: 0, height: 0, pixelRatio: 1, ctx };
+  const view = { width: 1, height: 1, pixelRatio: 1 };
   const listeners = new Set();
 
   function resize() {
@@ -24,10 +22,6 @@ export function createViewport(canvas) {
     view.width = width;
     view.height = height;
     view.pixelRatio = pixelRatio;
-    canvas.width = Math.round(width * pixelRatio);
-    canvas.height = Math.round(height * pixelRatio);
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
     for (const listener of listeners) listener(view);
   }
 

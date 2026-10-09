@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
-    "rename": "node scripts/rename.mjs"
+    "rename": "node scripts/rename.mjs",
+    "check": "node scripts/check-parts.mjs"
   },
   "engines": {
     "node": ">=18"

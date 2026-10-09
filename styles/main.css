@@ -1,10 +1,15 @@
 :root {
-  --bg: #14171c;
-  --text: #e9edf2;
-  --muted: #8b94a3;
-  --accent: #f2b233;
-  --accent-text: #1a1405;
-  color-scheme: dark;
+  --navy: #132a6b;
+  --navy-deep: #0d1d4d;
+  --sky-top: #2f9bff;
+  --sky-bottom: #a9e2ff;
+  --sun: #ffd23f;
+  --sun-deep: #e8a500;
+  --ink: #14204a;
+  --paper: #ffffff;
+  --muted: #7d89ad;
+  --font: ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  color-scheme: light;
 }
 
 *,
@@ -19,9 +24,9 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--navy);
+  color: var(--paper);
+  font-family: var(--font);
 
   /* Stop the page behaving like a document: no rubber-band scrolling,
      pull-to-refresh, text selection, tap flash or long-press callouts. */
@@ -37,102 +42,365 @@ body {
   inset: 0;
 }
 
-#game {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  /* dvh tracks the visible area as mobile browser bars show and hide. */
-  height: 100vh;
-  height: 100dvh;
-  /* The game handles every touch itself: no scrolling, pinch or double-tap zoom. */
-  touch-action: none;
-  outline: none;
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 2px;
 }
 
 [hidden] {
   display: none !important;
 }
 
-/* Start screen: the tap that dismisses it is what unlocks fullscreen. */
-#start {
+/* ---------- Garage layout ----------
+   Portrait: vehicle on top, picker along the bottom.
+   Landscape: vehicle on the left, picker down the right. */
+
+#garage {
   position: absolute;
   inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+#stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 58%, rgb(255 255 255 / 55%), transparent 70%),
+    linear-gradient(var(--sky-top), var(--sky-bottom));
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The game handles every touch itself: no scrolling, pinch or double-tap zoom. */
+  touch-action: none;
+  outline: none;
+  cursor: grab;
+}
+
+#game:active {
+  cursor: grabbing;
+}
+
+/* ---------- Controls floating over the vehicle ---------- */
+
+#paints {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgb(13 29 77 / 35%);
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 2px 0 rgb(13 29 77 / 35%);
+}
+
+.swatch[aria-checked='true'] {
+  border-color: var(--sun);
+  box-shadow:
+    0 0 0 3px var(--navy-deep),
+    0 2px 0 3px rgb(13 29 77 / 35%);
+}
+
+.round-button {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  background: var(--navy);
+  box-shadow: 0 3px 0 rgb(13 29 77 / 45%);
+}
+
+.round-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgb(13 29 77 / 45%);
+}
+
+.round-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+#fullscreen-button {
+  top: max(12px, env(safe-area-inset-top));
+}
+
+#shuffle-button {
+  bottom: 12px;
+}
+
+/* ---------- Part picker ---------- */
+
+#panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--navy);
+  border-top: 4px solid var(--navy-deep);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+#tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 10px 0;
+}
+
+.tab {
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 12%);
+  font-size: 0.875rem;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--sun-deep);
+}
+
+#parts {
+  display: flex;
+  gap: 10px;
+  padding: 12px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+#parts::-webkit-scrollbar {
+  display: none;
+}
+
+.card {
+  position: relative;
+  flex: 0 0 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 6px 8px;
+  border: 4px solid transparent;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 4px 0 var(--navy-deep);
+  text-align: center;
+}
+
+.card:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--navy-deep);
+}
+
+.card[aria-selected='true'] {
+  border-color: var(--sun);
+  box-shadow:
+    0 4px 0 var(--sun-deep),
+    0 0 0 2px var(--navy-deep);
+}
+
+.card-image,
+.card-empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: linear-gradient(#dff1ff, #f3f9ff);
+}
+
+.card-image {
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* "None": an empty slot with a strike through it. */
+.card-empty {
+  background:
+    linear-gradient(to top right, transparent calc(50% - 2px), #c3cce6 calc(50% - 2px), #c3cce6 calc(50% + 2px), transparent calc(50% + 2px)),
+    #eef2fb;
+  border: 3px dashed #c3cce6;
+}
+
+.card-name {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.card-count {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgb(20 32 74 / 70%);
+  color: var(--paper);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+@media (orientation: landscape) and (min-width: 560px) {
+  #garage {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 32vw, 400px);
+  }
+
+  #tabs {
+    gap: 4px;
+    padding: 8px 8px 0;
+  }
+
+  #panel {
+    border-top: 0;
+    border-left: 4px solid var(--navy-deep);
+    padding-left: 0;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  #parts {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+
+  .card {
+    flex: none;
+  }
+
+  .tab {
+    font-size: 0.75rem;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1100px) {
+  #parts {
+    gap: 14px;
+    padding: 16px 14px;
+  }
+
+  .tab {
+    min-height: 46px;
+    font-size: 1rem;
+  }
+
+  .card-name {
+    font-size: 0.9375rem;
+  }
+}
+
+/* ---------- Start screen: the tap that dismisses it unlocks fullscreen ---------- */
+
+#start {
+  position: absolute;
+  /* One pixel past every edge: on screens with a fractional pixel density
+     an exact fit can leave a hairline of the garage showing through. */
+  inset: -1px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 28px;
   padding:
     max(24px, env(safe-area-inset-top))
     max(24px, env(safe-area-inset-right))
     max(24px, env(safe-area-inset-bottom))
     max(24px, env(safe-area-inset-left));
-  background: var(--bg);
+  background: linear-gradient(#1d43a8, var(--navy) 70%);
   text-align: center;
 }
 
 #start-title {
   margin: 0;
-  font-size: clamp(2rem, 9vmin, 4.5rem);
-  font-weight: 800;
+  font-size: clamp(2.25rem, 11vmin, 5rem);
+  font-weight: 900;
+  font-style: italic;
   letter-spacing: -0.02em;
   line-height: 1.05;
   overflow-wrap: anywhere;
+  text-shadow: 0 0.07em 0 var(--navy-deep);
 }
 
 #start-button {
-  min-width: 200px;
-  min-height: 56px;
-  padding: 0 32px;
+  min-width: 210px;
+  min-height: 60px;
+  padding: 0 36px;
   border: 0;
-  border-radius: 12px;
-  background: var(--accent);
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 1.125rem;
-  font-weight: 700;
-  cursor: pointer;
-  touch-action: manipulation;
+  border-radius: 18px;
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 6px 0 var(--sun-deep);
+  font-size: 1.375rem;
+  font-weight: 900;
+  font-style: italic;
 }
 
 #start-button:active {
-  transform: translateY(1px);
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 var(--sun-deep);
 }
 
-#start-button:focus-visible,
-#fullscreen-button:focus-visible {
-  outline: 3px solid var(--text);
-  outline-offset: 3px;
+#start-button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 #start-hint {
   margin: 0;
   max-width: 32ch;
-  color: var(--muted);
+  color: #c5d2f5;
   font-size: 0.9375rem;
   line-height: 1.4;
 }
 
-/* Shown only after the player has left fullscreen. Kept clear of notches. */
-#fullscreen-button {
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  right: max(12px, env(safe-area-inset-right));
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid rgb(255 255 255 / 16%);
-  border-radius: 10px;
-  background: rgb(20 23 28 / 70%);
-  color: var(--text);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-#fullscreen-button svg {
-  width: 22px;
-  height: 22px;
+@media (prefers-reduced-motion: reduce) {
+  .card:active,
+  .round-button:active,
+  #start-button:active {
+    transform: none;
+  }
 }
