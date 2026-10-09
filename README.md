@@ -71,14 +71,15 @@ A new body also needs `mounts`: where the axles, weapons and extras attach.
 
 ## Racing
 
-| | Keyboard | Touch screen |
+| | Keyboard | Touch screen (one finger) |
 | --- | --- | --- |
-| Steer | Left / Right, or A / D | Left and right arrows, bottom left |
-| Accelerate | Up, or W | Up arrow, bottom right |
-| Brake, then reverse | Down, or S | Down arrow, bottom right |
+| Steer | Left / Right, or A / D | Drag left or right; further turns harder |
+| Accelerate | Up, or W | Automatic while the finger is down |
+| Brake, then reverse | Down, or S | Pull the finger back |
 
-The on-screen arrows appear on touch devices, and on anything else the first
-time the screen is touched.
+On a touch screen the whole race view is a floating joystick: it appears
+wherever the finger lands, so it suits either hand. Lifting the finger coasts.
+The ring shown at the bottom of the screen at rest is only a hint.
 
 Driving is deliberately forgiving (`src/race/car.js`): a car is a point with
 a heading and a velocity, and sideways speed bleeds away at a rate set by the
@@ -151,7 +152,7 @@ src/race/tracks/        the three track themes
 src/race/scene.js       3D side of a race and the chase camera
 src/race/vehicle.js     merges a build into a few meshes for racing
 src/race/hud.js         place, lap, time, countdown, results, track picker
-src/race/controls.js    keyboard and on-screen driving controls
+src/race/controls.js    keyboard and one-finger joystick
 src/race/grid.js        who lines up: rivals' names, builds and pace
 src/engine/             shape builders, scene nodes, materials, baking, WebGL renderer
 src/fullscreen.js       Fullscreen API wrapper

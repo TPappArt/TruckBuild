@@ -53,6 +53,7 @@
 
         <!-- Shown during a race, over the 3D view. -->
         <div id="hud" hidden>
+          <div id="drive-zone"></div>
           <div id="hud-place"><span id="hud-place-number">1</span><span id="hud-place-suffix">st</span></div>
           <div id="hud-info">
             <span id="hud-lap">Lap 1/3</span>
@@ -65,23 +66,9 @@
           </button>
           <div id="hud-banner" aria-live="polite" hidden></div>
 
-          <div id="touch-controls" hidden>
-            <div class="touch-pad">
-              <button id="touch-left" class="touch-button" type="button" aria-label="Steer left">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 4.5L7 12l8.5 7.5z" /></svg>
-              </button>
-              <button id="touch-right" class="touch-button" type="button" aria-label="Steer right">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 4.5L17 12l-8.5 7.5z" /></svg>
-              </button>
-            </div>
-            <div class="touch-pad">
-              <button id="touch-brake" class="touch-button" type="button" aria-label="Brake and reverse">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 8.5L12 17l7.5-8.5z" /></svg>
-              </button>
-              <button id="touch-gas" class="touch-button" type="button" aria-label="Accelerate">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 15.5L12 7l7.5 8.5z" /></svg>
-              </button>
-            </div>
+          <!-- One-finger joystick: appears under the finger, anywhere on screen. -->
+          <div id="joystick" aria-hidden="true" hidden>
+            <div id="joystick-knob"></div>
           </div>
         </div>
       </div>

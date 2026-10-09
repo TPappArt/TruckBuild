@@ -395,6 +395,11 @@ body[data-screen='race'] #fullscreen-button {
   text-shadow: none;
 }
 
+/* Keep the corner buttons above the full-screen touch area. */
+#fullscreen-button {
+  z-index: 1;
+}
+
 #hud-place {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));
@@ -445,47 +450,49 @@ body[data-screen='race'] #fullscreen-button {
     0 0 24px rgb(13 29 77 / 60%);
 }
 
-/* On-screen arrows: steering under the left thumb, pedals under the right. */
-#touch-controls {
+/* One-finger joystick. The whole screen is the touch area; the ring and
+   knob are only a picture of where the finger is. */
+#drive-zone {
   position: absolute;
-  left: max(14px, env(safe-area-inset-left));
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.touch-pad {
-  display: flex;
-  gap: 12px;
-}
-
-.touch-button {
-  display: grid;
-  place-items: center;
-  width: 74px;
-  height: 74px;
-  padding: 0;
-  border: 3px solid rgb(255 255 255 / 85%);
-  border-radius: 50%;
-  background: rgb(19 42 107 / 55%);
+  inset: 0;
+  pointer-events: auto;
   touch-action: none;
 }
 
-.touch-button svg {
-  width: 38px;
-  height: 38px;
-  fill: var(--paper);
+#joystick {
+  /* Resting place, as a hint. Moved under the finger while driving. */
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 96px - env(safe-area-inset-bottom));
+  width: 132px;
+  height: 132px;
+  margin: -66px 0 0 -66px;
+  border: 3px solid rgb(255 255 255 / 70%);
+  border-radius: 50%;
+  background: rgb(19 42 107 / 35%);
+  opacity: 0.6;
 }
 
-.touch-button.held {
+#joystick.held {
+  opacity: 1;
+}
+
+#joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
   background: var(--sun);
-  border-color: var(--paper);
+  box-shadow: 0 3px 0 rgb(13 29 77 / 45%);
 }
 
-.touch-button.held svg {
-  fill: var(--ink);
+/* Pulled back far enough to brake. */
+#joystick.braking #joystick-knob {
+  background: #f2443a;
 }
 
 /* ---------- Sheets: track picker and results ---------- */

@@ -1,8 +1,12 @@
-// Driving input from the keyboard (arrow keys or WASD) and from the
-// on-screen arrow buttons. Both feed the same four switches, so they can be
-// mixed freely.
+// Driving input: the keyboard (arrow keys or WASD) and a one-finger joystick
+// for touch screens.
 //
-// read() returns { steer: -1..1, throttle: 0|1, brake: 0|1 }.
+// The joystick floats: it appears wherever the finger lands, so it suits
+// either hand and any grip. While the finger is down the car accelerates;
+// dragging sideways steers, by as much as you drag; pulling back brakes and
+// then reverses. Lifting the finger coasts.
+//
+// read() returns { steer: -1..1, throttle: 0..1, brake: 0..1 }.
 
 const KEYS = {
   ArrowLeft: 'left',
@@ -15,9 +19,15 @@ const KEYS = {
   KeyS: 'brake',
 };
 
+const REACH = 56; // how far the knob travels from the centre, in CSS pixels
+const DEAD_ZONE = 0.12; // ignore tiny wobbles around the centre
+const BRAKE_AT = 0.45; // pull back this far (of the reach) to brake
+
+const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+
 export function createControls() {
   const keys = { left: false, right: false, gas: false, brake: false };
-  const touch = { left: false, right: false, gas: false, brake: false };
+  const stick = { pointer: null, x: 0, y: 0 }; // x right, y back, each -1..1
   let enabled = false;
 
   window.addEventListener('keydown', (event) => {
@@ -32,53 +42,101 @@ export function createControls() {
   });
   window.addEventListener('blur', release);
 
-  // On-screen buttons. Each tracks its own finger, so steering and
-  // accelerating at the same time works.
-  for (const action of Object.keys(touch)) {
-    const button = document.getElementById(`touch-${action}`);
-    const set = (held) => {
-      touch[action] = held;
-      button.classList.toggle('held', held);
-    };
-    button.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      button.setPointerCapture(event.pointerId);
-      set(true);
-    });
-    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-      button.addEventListener(type, () => set(false));
-    }
-    button.addEventListener('contextmenu', (event) => event.preventDefault());
+  // ---------- Joystick ----------
+
+  const zone = document.getElementById('drive-zone');
+  const joystick = document.getElementById('joystick');
+  const knob = document.getElementById('joystick-knob');
+  let originX = 0;
+  let originY = 0;
+
+  // At rest the joystick sits at the bottom of the screen as a hint. It is
+  // only shown on touch screens, or once something else has been touched.
+  if (window.matchMedia('(pointer: coarse)').matches) joystick.hidden = false;
+
+  function moveKnob() {
+    knob.style.transform = `translate(${stick.x * REACH}px, ${stick.y * REACH}px)`;
+    joystick.classList.toggle('braking', stick.y > BRAKE_AT);
   }
 
-  // Show the buttons on touch screens, and on anything else the moment it is touched.
-  const pad = document.getElementById('touch-controls');
-  if (window.matchMedia('(pointer: coarse)').matches) pad.hidden = false;
-  window.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') pad.hidden = false;
+  zone.addEventListener('pointerdown', (event) => {
+    if (stick.pointer !== null || !enabled) return;
+    event.preventDefault();
+    stick.pointer = event.pointerId;
+    zone.setPointerCapture(event.pointerId);
+
+    // Plant the joystick under the finger.
+    const bounds = zone.getBoundingClientRect();
+    originX = event.clientX;
+    originY = event.clientY;
+    joystick.style.left = `${originX - bounds.left}px`;
+    joystick.style.top = `${originY - bounds.top}px`;
+    joystick.hidden = false;
+    joystick.classList.add('held');
+    stick.x = 0;
+    stick.y = 0;
+    moveKnob();
   });
 
-  function release() {
-    for (const state of [keys, touch]) {
-      for (const action of Object.keys(state)) state[action] = false;
+  zone.addEventListener('pointermove', (event) => {
+    if (event.pointerId !== stick.pointer) return;
+    let dx = (event.clientX - originX) / REACH;
+    let dy = (event.clientY - originY) / REACH;
+    // Keep the knob inside its ring.
+    const length = Math.hypot(dx, dy);
+    if (length > 1) {
+      dx /= length;
+      dy /= length;
     }
-    for (const button of pad.querySelectorAll('.held')) button.classList.remove('held');
+    stick.x = dx;
+    stick.y = dy;
+    moveKnob();
+  });
+
+  function letGo(event) {
+    if (event && event.pointerId !== stick.pointer) return;
+    const usedTouch = !event || event.pointerType === 'touch';
+    stick.pointer = null;
+    stick.x = 0;
+    stick.y = 0;
+    moveKnob();
+    joystick.classList.remove('held');
+    // Back to its resting place (set in CSS) until the next touch.
+    joystick.style.left = '';
+    joystick.style.top = '';
+    if (!usedTouch && !window.matchMedia('(pointer: coarse)').matches) joystick.hidden = true;
+  }
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    zone.addEventListener(type, letGo);
+  }
+  zone.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  function release() {
+    for (const action of Object.keys(keys)) keys[action] = false;
+    if (stick.pointer !== null) letGo();
   }
 
   return {
-    /** Keys are ignored outside a race, so they do not get swallowed elsewhere. */
+    /** Input is ignored outside a race, so keys do not get swallowed elsewhere. */
     setEnabled(value) {
       enabled = value;
       if (!value) release();
     },
+
     read() {
-      const left = keys.left || touch.left;
-      const right = keys.right || touch.right;
-      return {
-        steer: (right ? 1 : 0) - (left ? 1 : 0),
-        throttle: keys.gas || touch.gas ? 1 : 0,
-        brake: keys.brake || touch.brake ? 1 : 0,
-      };
+      let steer = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      let throttle = keys.gas ? 1 : 0;
+      let brake = keys.brake ? 1 : 0;
+
+      if (stick.pointer !== null) {
+        // Past the dead zone, steering grows smoothly from zero to full lock.
+        const amount = Math.abs(stick.x);
+        if (amount > DEAD_ZONE) steer += Math.sign(stick.x) * ((amount - DEAD_ZONE) / (1 - DEAD_ZONE));
+        if (stick.y > BRAKE_AT) brake = 1;
+        else throttle = 1;
+      }
+
+      return { steer: clamp(steer, -1, 1), throttle, brake };
     },
   };
 }
