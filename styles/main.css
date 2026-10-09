@@ -1,0 +1,138 @@
+:root {
+  --bg: #14171c;
+  --text: #e9edf2;
+  --muted: #8b94a3;
+  --accent: #f2b233;
+  --accent-text: #1a1405;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Stop the page behaving like a document: no rubber-band scrolling,
+     pull-to-refresh, text selection, tap flash or long-press callouts. */
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  /* dvh tracks the visible area as mobile browser bars show and hide. */
+  height: 100vh;
+  height: 100dvh;
+  /* The game handles every touch itself: no scrolling, pinch or double-tap zoom. */
+  touch-action: none;
+  outline: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Start screen: the tap that dismisses it is what unlocks fullscreen. */
+#start {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  background: var(--bg);
+  text-align: center;
+}
+
+#start-title {
+  margin: 0;
+  font-size: clamp(2rem, 9vmin, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+#start-button {
+  min-width: 200px;
+  min-height: 56px;
+  padding: 0 32px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#start-button:active {
+  transform: translateY(1px);
+}
+
+#start-button:focus-visible,
+#fullscreen-button:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+
+#start-hint {
+  margin: 0;
+  max-width: 32ch;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+/* Shown only after the player has left fullscreen. Kept clear of notches. */
+#fullscreen-button {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 10px;
+  background: rgb(20 23 28 / 70%);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+#fullscreen-button svg {
+  width: 22px;
+  height: 22px;
+}

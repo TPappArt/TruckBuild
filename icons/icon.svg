@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Placeholder icon. Replace along with the PNGs once the game has art. -->
+  <rect width="512" height="512" rx="96" fill="#14171c"/>
+  <rect x="96" y="208" width="200" height="112" rx="12" fill="#f2b233"/>
+  <path d="M312 240h56a12 12 0 0 1 10 5l34 48a12 12 0 0 1 2 7v20h-102z" fill="#f2b233"/>
+  <circle cx="168" cy="336" r="40" fill="#14171c"/>
+  <circle cx="168" cy="336" r="24" fill="#e9edf2"/>
+  <circle cx="352" cy="336" r="40" fill="#14171c"/>
+  <circle cx="352" cy="336" r="24" fill="#e9edf2"/>
+</svg>
