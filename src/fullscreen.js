@@ -20,9 +20,14 @@ const exit =
 /** True when the page can be put into fullscreen by script. */
 export const fullscreenSupported = Boolean(request);
 
+// The Android app (android/) opens the game with "?app" on the end of the
+// address: it is already fullscreen there, and the page cannot tell.
+const wrapped = new URLSearchParams(window.location.search).has('app');
+
 /** True when the game was launched from the home screen or as an installed app. */
 export function isInstalled() {
   return (
+    wrapped ||
     window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches ||
     window.navigator.standalone === true
   );

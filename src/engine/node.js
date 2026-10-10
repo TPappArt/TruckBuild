@@ -12,6 +12,8 @@ export class Node {
     this.geometry = null;
     this.role = null;
     this.motion = null; // idle animation, see garage/scene.js
+    this.tint = null; // [r, g, b] multiplier applied when baked (bake.js)
+    this.floor = undefined; // height of the ground this stands on, for baking
     this.world = identity();
   }
 

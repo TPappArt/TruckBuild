@@ -1,0 +1,181 @@
+# Builds the installers and tries each on a real system:
+#
+#   TruckBuild.apk        Android app, installed and started on an emulator
+#   TruckBuild-Setup.exe  Windows setup program, installed, run and removed
+#   TruckBuild.exe        the same game as one Windows program, no setup
+#
+# Runs when a version tag (v1.2.3) is pushed, and then puts the three files
+# in a draft release for someone to look over and publish. It can also be
+# started by hand from the Actions tab, which builds and tests without
+# making a release; the files are then under "Artifacts" on the run's page.
+name: Installers
+
+on:
+  push:
+    tags: ['v*']
+    branches: ['ci/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # A signing key of your own, if the repository has one in its secrets
+      # (see README). Otherwise the shared key in android/sideload.jks.
+      - name: Use the repository's own signing key, if there is one
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build the app
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: npm run build:android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: dist/TruckBuild.apk
+          if-no-files-found: error
+
+      - name: Let the emulator use hardware virtualisation
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install it on an emulator and start it
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: bash android/smoke-test.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test
+          path: |
+            dist/android-*.png
+            dist/android-log.txt
+
+  windows:
+    name: Windows setup program
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+
+      - name: Make sure the installer maker is here
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            $nsis = 'C:\Program Files (x86)\NSIS'
+            if (-not (Test-Path "$nsis\makensis.exe")) { choco install nsis -y --no-progress }
+            Add-Content $env:GITHUB_PATH $nsis
+          }
+
+      - name: Build the program and its setup
+        run: npm run build:windows
+
+      - name: Check both were made
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist\TruckBuild-Setup.exe')) { Write-Output '::error::No setup program was made.'; exit 1 }
+          Get-ChildItem dist\*.exe | ForEach-Object { Write-Output "::notice title=Windows build::$($_.Name): $([math]::Round($_.Length / 1MB, 1)) MB" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            dist/TruckBuild-Setup.exe
+            dist/TruckBuild.exe
+          if-no-files-found: error
+
+      - name: Install it, run it, remove it
+        shell: pwsh
+        run: ./desktop/smoke-test.ps1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test
+          path: |
+            dist/windows-*.png
+            dist/selftest.txt
+
+  release:
+    name: Draft release
+    needs: [android, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Put the installers in a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "TruckBuild ${GITHUB_REF_NAME#v}" \
+            --notes "Android: install TruckBuild.apk. Windows: run TruckBuild-Setup.exe, or just run TruckBuild.exe without installing. Both were built and tried by the Installers workflow." \
+            out/TruckBuild.apk out/TruckBuild-Setup.exe out/TruckBuild.exe
+
+  # While the workflow itself is being worked on (on a branch called ci/...),
+  # what it built and the screenshots from its tests are pushed to a branch
+  # called ci-output, where they are easy to fetch and look at.
+  output:
+    name: Keep the results (ci/ branches only)
+    needs: [android, windows]
+    if: always() && startsWith(github.ref, 'refs/heads/ci/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Push them to the ci-output branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          ls -la
+          git init -q
+          git checkout -q -b ci-output
+          git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "What the Installers workflow made from ${GITHUB_SHA}"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-output

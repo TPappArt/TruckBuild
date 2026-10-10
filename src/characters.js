@@ -98,6 +98,6 @@ export function characterSvg(id) {
 
 /** Tidies a typed name: no odd spacing, not too long, never empty. */
 export function cleanName(text, fallback = 'Player') {
-  const name = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, NAME_LENGTH);
+  const name = (typeof text === 'string' ? text : '').replace(/\s+/g, ' ').trim().slice(0, NAME_LENGTH);
   return name || fallback;
 }

@@ -15,8 +15,23 @@ import { Node } from './node.js';
 
 const MAX_VERTICES = 65535; // index buffers are 16-bit
 
-/** Returns a Node containing the baked mesh (or meshes, if it is very large). */
-export function bake(root) {
+/**
+ * Returns a Node containing the baked mesh (or meshes, if it is very large).
+ *
+ * Two cheap ways of making merged things look less uniform are applied here,
+ * since this is the last moment each piece is still separate:
+ *
+ *   tint     a node with `tint` = [r, g, b] has its colours, and those of
+ *            everything under it, multiplied by it. Scenery gives every copy
+ *            of a prop a slightly different one.
+ *   contact  { height, dark }: surfaces are darkened toward the ground they
+ *            stand on (a node's `floor`, or 0), as if less light got in
+ *            under there. `dark` is the share of light lost at the bottom;
+ *            it fades to nothing `height` metres up.
+ *
+ * Neither touches anything that glows.
+ */
+export function bake(root, { contact = null } = {}) {
   root.updateWorld();
 
   const result = new Node();
@@ -40,7 +55,13 @@ export function bake(root) {
   };
 
   const n3 = new Float32Array(9);
-  root.walk((node) => {
+  const visit = (node, tint, floor) => {
+    if (node.tint) tint = tint ? [tint[0] * node.tint[0], tint[1] * node.tint[1], tint[2] * node.tint[2]] : node.tint;
+    if (node.floor !== undefined) floor = node.floor;
+    add(node, tint, floor);
+    for (const child of node.children) visit(child, tint, floor);
+  };
+  const add = (node, tint, floor) => {
     const geometry = node.geometry;
     if (!geometry) return;
     const count = geometry.positions.length / 3;
@@ -71,13 +92,23 @@ export function bake(root) {
       const nz = n3[2] * n[v] + n3[5] * n[v + 1] + n3[8] * n[v + 2];
       const len = Math.hypot(nx, ny, nz) || 1;
       chunk.normals.push(nx / len, ny / len, nz / len);
-      if (look) {
-        chunk.colors.push(look.color[0], look.color[1], look.color[2]);
-        chunk.params.push(look.spec, look.shine, look.glow);
-      } else {
-        chunk.colors.push(geometry.colors[v], geometry.colors[v + 1], geometry.colors[v + 2]);
-        chunk.params.push(geometry.params[v], geometry.params[v + 1], geometry.params[v + 2]);
+      let r = look ? look.color[0] : geometry.colors[v];
+      let g = look ? look.color[1] : geometry.colors[v + 1];
+      let b = look ? look.color[2] : geometry.colors[v + 2];
+      const glow = look ? look.glow : geometry.params[v + 2];
+      if (glow < 0.05 && (tint || contact)) {
+        let light = 1;
+        if (contact) {
+          const up = (m[1] * x + m[5] * y + m[9] * z + m[13] - floor) / contact.height;
+          if (up < 1) light -= contact.dark * (1 - Math.max(0, up)) ** 2;
+        }
+        r *= light * (tint ? tint[0] : 1);
+        g *= light * (tint ? tint[1] : 1);
+        b *= light * (tint ? tint[2] : 1);
       }
+      chunk.colors.push(r, g, b);
+      if (look) chunk.params.push(look.spec, look.shine, look.glow);
+      else chunk.params.push(geometry.params[v], geometry.params[v + 1], geometry.params[v + 2]);
     }
 
     const index = geometry.indices;
@@ -86,7 +117,8 @@ export function bake(root) {
       if (mirrored) chunk.indices.push(base + index[i], base + index[i + 2], base + index[i + 1]);
       else chunk.indices.push(base + index[i], base + index[i + 1], base + index[i + 2]);
     }
-  });
+  };
+  visit(root, null, 0);
   flush();
 
   result.updateWorld();

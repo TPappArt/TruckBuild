@@ -70,7 +70,10 @@ export function buildRaceVehicle(build) {
     return { top, part, motion: piece.motion, rest: [...piece.rotation] };
   });
 
-  const body = bake(upper);
+  // The body is shaded a little darker toward the road, which sits it down
+  // on its wheels. (Not the wheels or anything else that turns: the dark
+  // side would go round with them.)
+  const body = bake(upper, { contact: { height: 1.2, dark: 0.26 } });
 
   // Every wheel is a copy of the same unit, so bake one and share it.
   let shared = null;

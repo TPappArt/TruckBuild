@@ -70,7 +70,9 @@ function createMesh() {
         data.positions.push(point[0], point[1], point[2]);
         data.normals.push(nx, ny, nz);
         data.colors.push(look.color[0], look.color[1], look.color[2]);
-        data.params.push(look.spec, look.shine, look.glow);
+        // What lies flat is as matt as the paint it joins (world.js), or
+        // a viaduct would shine where the road before it does not.
+        data.params.push(ny > 0.9 ? 0 : look.spec, look.shine, look.glow);
       }
       for (let i = 1; i < points.length - 1; i++) {
         if (flip) data.indices.push(base, base + i + 1, base + i);

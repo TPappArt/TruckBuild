@@ -1,6 +1,7 @@
 import { characterSvg } from '../characters.js';
 import { buyTrack, trackLock, trackOpen } from '../profile.js';
 import { coinIcon, lockIcon, placeArt } from '../ui/icons.js';
+import { createChatter } from './chatter.js';
 import { RELOAD } from './combat.js';
 import { DIFFICULTIES } from './grid.js';
 import { coinsSoFar, REWARDS } from './rewards.js';
@@ -85,6 +86,9 @@ export function createHud({ fx }) {
   const plateLayer = $('plates');
   let shownEvent = null;
   let plates = []; // one element per racer, in session order
+  let bubbles = []; // the speech bubble on each plate
+  let said = []; // what each bubble last showed
+  let chatter = createChatter();
 
   for (const holder of document.querySelectorAll('.coin')) holder.innerHTML = coinIcon;
 
@@ -134,12 +138,28 @@ export function createHud({ fx }) {
       text(fireLabel, left > 0 ? String(Math.ceil(left)) : 'Fire');
     }
 
-    // Nameplates ride above the cars.
+    // Nameplates ride above the cars, and now and then a driver has
+    // something to say.
+    chatter.update(session);
     plates.forEach((plate, i) => {
       const at = where[i];
       const show = Boolean(at?.visible);
       if (plate.hidden === show) plate.hidden = !show;
       if (show) plate.style.transform = `translate3d(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px, 0) translate(-50%, -100%) scale(${at.scale.toFixed(2)})`;
+
+      const line = chatter.lines[i];
+      if (line === said[i]) return;
+      said[i] = line;
+      const bubble = bubbles[i];
+      if (line) {
+        bubble.textContent = line.text;
+        // Each one at its own slight tilt.
+        bubble.style.setProperty('--tilt', `${((i * 7 + line.text.length * 3) % 9) - 4}deg`);
+      }
+      bubble.classList.toggle('on', Boolean(line));
+      // Whoever is talking goes in front, so the bubble is not hidden
+      // behind a neighbour's nameplate.
+      plate.classList.toggle('talking', Boolean(line));
     });
 
     // The map does not need redrawing every frame.
@@ -264,9 +284,12 @@ export function createHud({ fx }) {
     setupMap(session.track, site);
     mapTick = 0;
 
-    plates = session.racers.map((racer) => {
+    chatter = createChatter();
+    bubbles = session.racers.map(() => element('span', 'bubble'));
+    said = session.racers.map(() => null);
+    plates = session.racers.map((racer, i) => {
       const plate = element('div', racer.isPlayer ? 'plate plate-you' : 'plate');
-      plate.append(face(racer.character), element('span', 'plate-name', racer.name));
+      plate.append(face(racer.character), element('span', 'plate-name', racer.name), bubbles[i]);
       plate.hidden = true;
       return plate;
     });

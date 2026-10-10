@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- No title bar, and the game's own blue behind everything, so there is
+         no white flash while the page loads. -->
+    <style name="Game" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/navy</item>
+        <item name="android:statusBarColor">@color/navy</item>
+        <item name="android:navigationBarColor">@color/navy</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+    <color name="navy">#132a6b</color>
+</resources>

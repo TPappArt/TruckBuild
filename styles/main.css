@@ -660,6 +660,59 @@ body[data-screen='race'] #fullscreen-button {
   color: var(--ink);
 }
 
+.plate.talking {
+  z-index: 1;
+}
+
+/* What a driver is saying: a bubble that pops up over the nameplate for a
+   moment (race/chatter.js decides the words). */
+.bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  padding: 3px 10px 4px;
+  border-radius: 13px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.15;
+  box-shadow: 0 2px 0 rgb(13 29 77 / 35%);
+  opacity: 0;
+  transform: translateX(-50%) rotate(var(--tilt, 0deg)) scale(0.2);
+  transform-origin: 50% 130%;
+  transition: opacity 0.12s ease-out, transform 0.12s ease-in;
+  pointer-events: none;
+}
+
+/* The tail, pointing down at the car. */
+.bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--paper);
+  border-bottom-width: 0;
+}
+
+.bubble.on {
+  opacity: 1;
+  transform: translateX(-50%) rotate(var(--tilt, 0deg)) scale(1);
+  /* A little overshoot on the way in, so it pops. */
+  transition: opacity 0.08s ease-out, transform 0.22s cubic-bezier(0.34, 1.7, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble,
+  .bubble.on {
+    transform: translateX(-50%) rotate(var(--tilt, 0deg));
+    transition: opacity 0.1s linear;
+  }
+}
+
 /* The windscreen: each effect is a small repeating texture (set by
    ui/screenfx.js as --tile) that a mask lets through only near the edges. */
 #screen-fx {

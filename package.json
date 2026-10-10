@@ -1,6 +1,6 @@
 {
   "name": "truckbuild",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,12 @@
     "rename": "node scripts/rename.mjs",
     "check": "node scripts/check-parts.mjs",
     "simulate": "node scripts/simulate-race.mjs",
-    "check:tracks": "node scripts/check-tracks.mjs"
+    "check:tracks": "node scripts/check-tracks.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "fuzz": "node scripts/fuzz-race.mjs",
+    "package": "node scripts/package.mjs",
+    "build:windows": "node scripts/build-desktop.mjs",
+    "build:android": "bash android/build.sh"
   },
   "engines": {
     "node": ">=18"

@@ -11,3 +11,11 @@ Thumbs.db
 
 .env
 .env.*
+
+# The game, copied in for the launcher to embed (scripts/build-desktop.mjs).
+desktop/launcher/www/
+
+# Android build leftovers and signing keys that are not the shared one.
+android/build/
+*.jks
+!android/sideload.jks

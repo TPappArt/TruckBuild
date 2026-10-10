@@ -115,10 +115,15 @@ export function createCombat(track, random, bang = () => {}, trigger = 0.2) {
       shot.age += dt;
       shot.index += (SHOT_SPEED * dt) / track.spacing;
       const target = carAhead(shot.owner, shot.index, 50, racers);
-      if (target) {
+      // Where the road is divided a shot keeps to its own lane: the island
+      // is in the way, and the other lane may be on a different level.
+      const island = track.dividerAt(shot.index);
+      const side = shot.offset >= 0 ? 1 : -1;
+      if (target && !(island > 0 && Math.sign(target.car.offset) === -side)) {
         const gap = target.car.offset - shot.offset;
         shot.offset += Math.sign(gap) * Math.min(Math.abs(gap), SHOT_DRIFT * dt);
       }
+      if (island > 0) shot.offset = side * Math.max(Math.abs(shot.offset), island + 0.8);
       const at = track.pointAt(shot.index, shot.offset);
       shot.x = at.x;
       shot.z = at.z;

@@ -7,7 +7,7 @@ import { fireDrum, jersey, ruin, wreck } from '../setpieces.js';
 // through the old high street is full of zombies, and bits of the sky
 // keep falling on it.
 
-const asphalt = material('#44454b', { spec: 0.05 });
+const asphalt = material('#373940', { spec: 0.05 });
 const concrete = material('#8a8780', { spec: 0.05 });
 const concreteDark = material('#5e5c58', { spec: 0.05 });
 const brick = material('#7a4a3a', { spec: 0.05 });
@@ -152,12 +152,12 @@ export const city = {
   grain: 0.22,
   cinematic: { eye: [10, -70, 6], target: [-2, -6, 8], fov: 1.0, cars: -42 },
 
-  ground: material('#6a6058'),
+  ground: material('#72675c'),
   road: {
     surface: asphalt,
     shoulder: material('#77736c'),
     wear: material('#6a6058'),
-    patch: material('#3a3b40'),
+    patch: material('#46484f'),
     scuff: material('#2f3034'),
     edge: material('#d9d6cc'),
     kerbA: hazard,
@@ -166,7 +166,7 @@ export const city = {
     chequerDark: material('#1d1e22'),
     chequerLight: material('#f1efe6'),
   },
-  preview: { ground: '#6a6058', road: '#3a3b40', accent: '#f2c230' },
+  preview: { ground: '#72675c', road: '#373940', accent: '#f2c230' },
 
   // Flyovers, underpasses and central reservations: concrete and hazard
   // paint, with street lamps down the middle.

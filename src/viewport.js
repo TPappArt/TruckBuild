@@ -5,13 +5,16 @@ import { GAME } from './config.js';
 //
 // `view.width` / `view.height` are in CSS pixels. Multiply by
 // `view.pixelRatio` for the backing-store size.
+//
+// `view.quality` (1 = full) scales the pixel density down on devices that
+// cannot keep up: see governor.js, which calls `view.setQuality`.
 export function createViewport(canvas) {
-  const view = { width: 1, height: 1, pixelRatio: 1 };
+  const view = { width: 1, height: 1, pixelRatio: 1, quality: 1 };
   const listeners = new Set();
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, GAME.maxPixelRatio);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, GAME.maxPixelRatio) * view.quality;
     const width = Math.max(1, Math.round(rect.width));
     const height = Math.max(1, Math.round(rect.height));
 
@@ -28,6 +31,11 @@ export function createViewport(canvas) {
   new ResizeObserver(resize).observe(canvas);
   window.addEventListener('orientationchange', resize);
   resize();
+
+  view.setQuality = (quality) => {
+    view.quality = quality;
+    resize();
+  };
 
   view.onResize = (listener) => {
     listeners.add(listener);

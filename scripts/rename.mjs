@@ -4,8 +4,10 @@
 //
 // src/config.js is the source of truth at runtime, but the page title, the
 // web app manifest, package.json and the README are static files that cannot
-// read it, so this script keeps them in step. The repository folder and any
-// git remote are left alone.
+// read it, so this script keeps them in step, along with what the Android
+// and Windows apps are called. The repository folder, any git remote and the
+// Android app's id (io.github...truckbuild, which must never change once the
+// app is on people's phones) are left alone.
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -48,6 +50,15 @@ const edits = [
   ['manifest.webmanifest', oldName, newName],
   ['README.md', oldName, newName],
   ['package.json', `"name": "${slug(oldName)}"`, `"name": "${slug(newName)}"`],
+  // The installers: what the apps are called, and the files they are built as.
+  ['android/res/values/strings.xml', oldName, newName],
+  ['android/build.sh', oldName, newName],
+  ['android/smoke-test.sh', oldName, newName],
+  ['desktop/installer.nsi', oldName, newName],
+  ['desktop/launcher/main.go', oldName, newName],
+  ['desktop/smoke-test.ps1', oldName, newName],
+  ['scripts/build-desktop.mjs', oldName, newName],
+  ['.github/workflows/installers.yml', oldName, newName],
 ];
 
 for (const [file, find, replacement] of edits) {

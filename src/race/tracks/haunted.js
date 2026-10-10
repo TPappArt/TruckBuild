@@ -177,19 +177,19 @@ export const haunted = {
 
   ground: earth,
   road: {
-    surface: material('#3f3a4c'),
-    shoulder: material('#33304a'),
-    wear: material('#2b2a3a'),
-    patch: material('#474255'),
-    scuff: material('#2c2836'),
-    edge: material('#8d8aa0'),
+    surface: material('#5a5876'),
+    shoulder: material('#272536'),
+    wear: material('#46445e'),
+    patch: material('#64627f'),
+    scuff: material('#3a3850'),
+    edge: material('#b4b1cc'),
     kerbA: material('#ff8a1f'),
     kerbB: material('#231f33'),
     line: material('#ffb347', { glow: 0.5 }),
     chequerDark: material('#1c1a26'),
     chequerLight: material('#f1e9ff'),
   },
-  preview: { ground: '#2b2a3a', road: '#4a4560', accent: '#ff8a1f' },
+  preview: { ground: '#2b2a3a', road: '#5a5876', accent: '#ff8a1f' },
 
   // Viaducts, cuttings and islands: old stone, candle-lit, with lanterns
   // down the middle.

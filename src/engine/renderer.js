@@ -117,7 +117,11 @@ void main() {
 
   vec3 h = normalize(uLight + v);
   color += uSun * vParams.x * pow(max(dot(n, h), 0.0), vParams.y);
-  color += uSky * pow(1.0 - max(dot(n, v), 0.0), 3.0) * 0.16 * (n.y * 0.5 + 0.5);
+  // A sheen of sky colour where a surface is seen edge on. It is held back
+  // on anything lying flat: there it is seen edge on all the way to the
+  // horizon, and would wash the road and the ground toward the same tone.
+  float rim = 1.0 - max(dot(n, v), 0.0);
+  color += uSky * (rim * rim * rim) * 0.16 * (n.y * 0.5 + 0.5) * (1.0 - 0.6 * n.y * n.y);
 
   color = mix(color, vColor * (1.35 * uPulse), vParams.z);
   // Glowing things stay visible further into the fog.
@@ -270,6 +274,7 @@ export function createRenderer(canvas) {
   const model = identity();
   const normal = new Float32Array(9);
   let drawCalls = 0;
+  let triangles = 0;
 
   function draw(node, transform) {
     if (node.geometry) {
@@ -297,6 +302,7 @@ export function createRenderer(canvas) {
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, entry.index);
       gl.drawElements(gl.TRIANGLES, entry.count, gl.UNSIGNED_SHORT, 0);
       drawCalls++;
+      triangles += entry.count / 3;
     }
     for (const child of node.children) draw(child, transform);
   }
@@ -339,6 +345,7 @@ export function createRenderer(canvas) {
     const lighting = scene.lighting || {};
     const fog = scene.fog;
     drawCalls = 0;
+    triangles = 0;
 
     // With fog the far distance is the fog colour; without, leave the canvas
     // see-through so the page behind it shows.
@@ -512,9 +519,12 @@ export function createRenderer(canvas) {
     render,
     release,
     setSize,
-    /** Draw calls in the last frame, for keeping an eye on performance. */
+    /** Draw calls and triangles in the last frame, for keeping an eye on performance. */
     get drawCalls() {
       return drawCalls;
+    },
+    get triangles() {
+      return triangles;
     },
   };
 }

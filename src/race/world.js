@@ -362,8 +362,15 @@ function buildSky(theme) {
     }
   }
 
-  sky.updateWorld();
-  return sky;
+  // One mesh, so the whole sky is one draw call however many stars it has.
+  // (The dome comes first in it and is drawn first, with the rest over it.)
+  return bake(sky);
+}
+
+/** A number from 0 to 1 that depends only on a place: the same every time, different a step away. */
+function scatter(x, z) {
+  const value = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return value - Math.floor(value);
 }
 
 export function buildWorld(theme) {
@@ -382,17 +389,34 @@ export function buildWorld(theme) {
     Boolean(track.sectionAt(index - 2) || track.sectionAt(index + 2));
 
   // Scenery: copies of a few prototype props, merged into one mesh at the end.
+  // No two copies are quite the same colour: each is a touch lighter or
+  // darker and a touch warmer or cooler than the next, decided by where it
+  // stands (so a track looks the same every time it is built).
   const set = new Node();
-  const put = (prop, x, z, { scale = 1, turn = 0, y = 0 } = {}) => {
+  const variety = theme.variety ?? 1;
+  const put = (prop, x, z, { scale = 1, turn = 0, y = 0, plain = false } = {}) => {
     const copy = prop.clone();
     copy.position = [x, y, z];
     copy.rotation[1] = turn;
     copy.scale = Array.isArray(scale) ? scale : [scale, scale, scale];
+    copy.floor = Math.max(0, y);
+    if (!plain && variety > 0) {
+      const light = 1 + (scatter(x, z) - 0.5) * 0.2 * variety;
+      const warm = (scatter(z + 31.7, x - 12.3) - 0.5) * 0.08 * variety;
+      copy.tint = [light * (1 + warm), light, light * (1 - warm)];
+    }
     set.add(copy);
     return copy;
   };
   // Ordinary scenery keeps off the landmark.
   const place = (prop, x, z, options) => (taken(x, z) ? null : put(prop, x, z, options));
+  // Scattered things also differ a little in build: one taller and thinner,
+  // the next squatter. `size` is the scale asked for.
+  const varied = (size, x, z) => {
+    const girth = 1 + (scatter(x + 5.1, z + 9.7) - 0.5) * 0.14 * variety;
+    const height = 1 + (scatter(z - 3.3, x + 17.9) - 0.5) * 0.24 * variety;
+    return [size * girth, size * height, size * girth];
+  };
 
   const paint = createPainter();
   const far = 700;
@@ -414,7 +438,7 @@ export function buildWorld(theme) {
         // The far side of a bend can put it near another part of the road.
         if (track.distanceTo(p.x, p.z) < from - 1) continue;
         place(random.pick(list), p.x, p.z, {
-          scale: random.range(scale[0], scale[1]),
+          scale: varied(random.range(scale[0], scale[1]), p.x, p.z),
           turn: random() * Math.PI * 2,
           y: random.range(y[0], y[1]),
         });
@@ -429,7 +453,7 @@ export function buildWorld(theme) {
         const x = random.range(-reach, reach);
         const z = random.range(-reach, reach);
         if (track.distanceTo(x, z) < clear) continue;
-        place(random.pick(list), x, z, { scale: random.range(scale[0], scale[1]), turn: random() * Math.PI * 2 });
+        place(random.pick(list), x, z, { scale: varied(random.range(scale[0], scale[1]), x, z), turn: random() * Math.PI * 2 });
         placed++;
       }
     },
@@ -523,7 +547,7 @@ export function buildWorld(theme) {
   }
 
   const start = track.pointAt(0, 0);
-  put(startGate(track, theme.road), start.x, start.z, { turn: start.heading });
+  put(startGate(track, theme.road), start.x, start.z, { turn: start.heading, plain: true });
 
   // A checkpoint gate at the end of every sector but the last, which
   // finishes at the start line.
@@ -531,7 +555,7 @@ export function buildWorld(theme) {
   const checkpoints = [];
   for (const index of track.checkpoints) {
     const p = track.pointAt(index, 0);
-    put(gate, p.x, p.z, { turn: p.heading });
+    put(gate, p.x, p.z, { turn: p.heading, plain: true });
     checkpoints.push({ index, x: p.x, z: p.z, heading: p.heading });
   }
 
@@ -551,7 +575,9 @@ export function buildWorld(theme) {
     }
   }
 
-  const scenery = bake(set);
+  // Merged into one mesh (two on the biggest tracks), and darkened a little
+  // toward the ground everything stands on.
+  const scenery = bake(set, { contact: { height: 1.6, dark: 0.2 } });
   const { decks, openings } = buildRoadworks(track, theme);
 
   return { theme, track, ground, scenery, decks, openings, sky: buildSky(theme), site, checkpoints };

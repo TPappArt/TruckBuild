@@ -10,6 +10,7 @@ import {
   toggleFullscreen,
 } from './fullscreen.js';
 import { createGarageScene } from './garage/scene.js';
+import { createGovernor } from './governor.js';
 import { createThumbnailer } from './garage/thumbnails.js';
 import { createGarageUI } from './garage/ui.js';
 import { createLoop } from './loop.js';
@@ -51,7 +52,15 @@ function showHint(text) {
 function loadPictures() {
   try {
     const saved = JSON.parse(localStorage.getItem(PICTURES_KEY));
-    return saved?.version === GAME.picturesVersion ? saved.images : {};
+    const images = {};
+    if (saved?.version === GAME.picturesVersion && saved.images && typeof saved.images === 'object') {
+      // Only what is plainly a picture of a track that exists.
+      for (const theme of TRACKS) {
+        const image = saved.images[theme.id];
+        if (typeof image === 'string' && image.startsWith('data:image/')) images[theme.id] = image;
+      }
+    }
+    return images;
   } catch {
     return {};
   }
@@ -66,6 +75,7 @@ function savePictures(images) {
 
 function startGame() {
   const view = createViewport(canvas);
+  const governor = createGovernor(view);
   const renderer = createRenderer(canvas);
   const garage = createGarageScene(renderer, view);
   const race = createRaceScene(renderer, view);
@@ -147,8 +157,15 @@ function startGame() {
   let busy = false; // a loading screen is up
   const plates = [];
 
+  // The sharpness a race settled at is kept for the next one; the garage
+  // is always drawn at full sharpness.
+  let raceQuality = 1;
+
   function showScreen(name) {
+    if (activeScreen === 'race') raceQuality = view.quality;
     activeScreen = name;
+    view.setQuality(name === 'race' ? raceQuality : 1);
+    governor.reset();
     document.body.dataset.screen = name;
     $('hud').hidden = name !== 'race';
     controls.setEnabled(name === 'race');
@@ -230,6 +247,22 @@ function startGame() {
     openTrackPicker();
   });
 
+  // The Android app asks here what its back button should do. True means
+  // the game has dealt with it (left a race, closed a sheet); false means
+  // there was nothing to go back from, and the app steps aside.
+  window.truckbuildBack = () => {
+    if (busy) return true;
+    if (activeScreen === 'race' || !$('track-picker').hidden) {
+      backToGarage();
+      return true;
+    }
+    if (!$('character').hidden && profile.character) {
+      $('character').hidden = true;
+      return true;
+    }
+    return false;
+  };
+
   refreshProfileChip();
   $('wallet-coins').textContent = String(profile.coins);
 
@@ -277,6 +310,11 @@ function startGame() {
 
   showScreen('garage');
   const loop = createLoop({
+    // Only a race is worth turning the sharpness down for: the garage is
+    // one vehicle on a turntable.
+    measure(seconds) {
+      if (GAME.adaptiveResolution && activeScreen === 'race' && !busy) governor.frame(seconds);
+    },
     update(dt) {
       if (activeScreen !== 'race') {
         garage.update(dt);

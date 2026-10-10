@@ -8,6 +8,11 @@ export const GAME = {
   // render four times the pixels for little visible gain.
   maxPixelRatio: 2,
 
+  // Draw fewer pixels on devices that cannot keep up at full sharpness
+  // (see governor.js). Off, every device draws at its full pixel density,
+  // up to maxPixelRatio, however slowly.
+  adaptiveResolution: true,
+
   // Longest simulation step, in seconds. Stops a huge jump after the tab
   // was in the background.
   maxFrameTime: 0.1,

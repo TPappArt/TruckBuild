@@ -63,27 +63,39 @@ function mesh(geometry) {
 /** A fixed set of nodes handed out afresh each frame, for short-lived things. */
 function createPool() {
   const nodes = [];
-  let used = 0;
+  const active = [];
   return {
     reset() {
-      used = 0;
+      active.length = 0;
     },
     /** Returns a node showing `geometry` at the given place and size. */
     take(geometry, x, y, z, scale = 1, turn = 0) {
-      if (used === nodes.length) nodes.push(new Node());
-      const node = nodes[used++];
+      if (active.length === nodes.length) nodes.push(new Node());
+      const node = nodes[active.length];
+      active.push(node);
       node.geometry = geometry;
-      node.position = [x, y, z];
+      const p = node.position;
+      p[0] = x;
+      p[1] = y;
+      p[2] = z;
+      // (Callers sometimes give a node a rotation array of their own.)
       node.rotation = [0, turn, 0];
-      node.scale = Array.isArray(scale) ? scale : [scale, scale, scale];
+      const s = node.scale;
+      const each = Array.isArray(scale);
+      s[0] = each ? scale[0] : scale;
+      s[1] = each ? scale[1] : scale;
+      s[2] = each ? scale[2] : scale;
       node.updateWorld();
       return node;
     },
-    get active() {
-      return nodes.slice(0, used);
-    },
+    /** The nodes handed out since the last reset. Not to be kept or changed. */
+    active,
   };
 }
+
+// Things on the road further off than this are not drawn: at that range a
+// pickup is a speck, and there may be thirty of them round the lap.
+const SIGHT = 230;
 
 export function createRaceScene(renderer, view) {
   let world = null;
@@ -108,7 +120,9 @@ export function createRaceScene(renderer, view) {
     while (worlds.size > KEEP_WORLDS) {
       const [oldest, gone] = worlds.entries().next().value;
       worlds.delete(oldest);
-      for (const node of [gone.ground, gone.scenery, gone.sky]) renderer.release(node);
+      for (const node of [gone.ground, gone.scenery, gone.sky, gone.decks, gone.openings]) {
+        if (node) renderer.release(node);
+      }
     }
     return built;
   }
@@ -192,9 +206,31 @@ export function createRaceScene(renderer, view) {
 
     time = 0;
     cameraHeading = (player || session.racers[0]).car.heading;
-    place(0);
     chase(0, true);
+    aim();
+    place(0);
     return session;
+  }
+
+  // Which way the camera is looking over the ground, and how wide. Only
+  // what is in front of it and near enough to make out is worth drawing.
+  const sight = { x: 0, z: 1, spread: 1 };
+  function aim(aspect = view.width / view.height) {
+    const dx = camera.target[0] - camera.eye[0];
+    const dz = camera.target[2] - camera.eye[2];
+    const length = Math.hypot(dx, dz) || 1;
+    sight.x = dx / length;
+    sight.z = dz / length;
+    // Half the width of the view at a metre's distance, with room to spare.
+    sight.spread = Math.tan(camera.fov / 2) * Math.max(1, aspect) * 1.25;
+  }
+  /** True if a thing `size` metres across at (x, z) may be on screen. */
+  function inSight(x, z, size = 5) {
+    const dx = x - camera.eye[0];
+    const dz = z - camera.eye[2];
+    const ahead = dx * sight.x + dz * sight.z;
+    if (ahead < -size || ahead > SIGHT) return false;
+    return Math.abs(dx * sight.z - dz * sight.x) < (ahead + size) * sight.spread + size;
   }
 
   /** Puts everything where the session says it is. */
@@ -228,12 +264,14 @@ export function createRaceScene(renderer, view) {
     for (const gate of gates) {
       const through = Boolean(player) && (player.finished || (player.lap >= 0 && player.car.index >= gate.index));
       gate.line.geometry = through ? gate.lit : gate.dim;
-      solidPool.take(checkpointLamp(span, CHECKPOINT_HEIGHT, through), gate.x, 0, gate.z, 1, gate.heading);
+      if (inSight(gate.x, gate.z, span)) solidPool.take(checkpointLamp(span, CHECKPOINT_HEIGHT, through), gate.x, 0, gate.z, 1, gate.heading);
     }
 
     // Pickups, hazards and trampolines, each in its colour-coded ring and halo.
-    props.forEach(({ item, node, ring, halo }, i) => {
-      if (!item.active) return;
+    props.forEach((entry, i) => {
+      const { item, node, ring, halo } = entry;
+      entry.shown = item.active && inSight(item.x, item.z);
+      if (!entry.shown) return;
       const [, radius, height, squash] = ITEM_HALOS[item.kind];
       const y = item.y;
       glowPool.take(halo, item.x, y + height, item.z, [radius * pulse, radius * squash * pulse, radius * pulse]);
@@ -371,6 +409,7 @@ export function createRaceScene(renderer, view) {
 
     if (feature.kind === 'pyramid') {
       for (const pillar of feature.pillars) {
+        if (!inSight(pillar.x, pillar.z)) continue;
         if (pillar.height > 0) {
           castPool.take(pillarGeometry(), pillar.x, -PYRAMID.height * (1 - pillar.height), pillar.z);
         }
@@ -409,6 +448,7 @@ export function createRaceScene(renderer, view) {
 
     if (feature.kind === 'graveyard') {
       feature.graves.forEach((grave, i) => {
+        if (!inSight(grave.x, grave.z)) return;
         if (grave.phase === 'warn') {
           const throb = 1 + 0.15 * Math.sin(time * 18);
           paintPool.take(ringGeometry('bad', 1.5, 2.3), grave.x, 0, grave.z, throb);
@@ -424,7 +464,7 @@ export function createRaceScene(renderer, view) {
 
     if (feature.kind === 'street') {
       feature.zombies.forEach((zombie, i) => {
-        if (zombie.phase === 'away') return;
+        if (zombie.phase === 'away' || !inSight(zombie.x, zombie.z, 24)) return;
         const shape = zombieGeometry(i % 3);
         if (zombie.phase === 'flung') {
           // Head over heels through the air.
@@ -517,6 +557,9 @@ export function createRaceScene(renderer, view) {
     if (!session) return;
     time += dt;
     session.update(dt, input);
+    // Things are placed for the camera as it was last frame, which is as
+    // near as makes no difference.
+    aim();
     place(session.phase === 'countdown' ? 0 : dt);
     chase(dt);
   }
@@ -524,7 +567,7 @@ export function createRaceScene(renderer, view) {
   function draw() {
     const theme = world.theme;
     const cars = vehicles.map((vehicle) => vehicle.node);
-    const items = props.filter((entry) => entry.item.active && entry.node);
+    const items = props.filter((entry) => entry.shown && entry.node);
     const standing = items.map((entry) => entry.node);
 
     // A snowstorm closes the view in; a strike nearby lights everything up.
@@ -645,13 +688,16 @@ export function createRaceScene(renderer, view) {
     for (let step = 0; step < 240; step++) session.feature?.update(1 / 60, 0, []);
     for (let step = 0; step < 75; step++) session.update(1 / 60);
     time = 3;
-    place(1 / 60);
 
     // (`world: true` gives the camera in world coordinates instead: handy
     // for looking at other parts of a track while working on it.)
     camera.eye = shot.world ? shot.eye : local(shot.eye);
     camera.target = shot.world ? shot.target : local(shot.target);
     camera.fov = shot.fov;
+    // Things are only put in the scene if the camera can see them, so it
+    // has to be in place first.
+    aim(width / height);
+    place(1 / 60);
     renderer.setSize(width, height, 1);
     draw();
     const image = renderer.canvas.toDataURL('image/jpeg', 0.86);

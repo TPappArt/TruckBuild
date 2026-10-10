@@ -21,17 +21,30 @@ function read(key) {
   }
 }
 
+const MOST_COINS = 999999;
+
 export function loadProfile() {
-  const saved = read(KEY) || {};
+  // Whatever is in storage is treated as possibly rubbish: a half-written
+  // save, something from an older version, or a curious child with the
+  // browser's tools open.
+  const found = read(KEY);
+  const saved = found && typeof found === 'object' && !Array.isArray(found) ? found : {};
+  const wins = {};
+  if (saved.wins && typeof saved.wins === 'object') {
+    for (const theme of TRACKS) {
+      const count = Math.floor(Number(saved.wins[theme.id]) || 0);
+      if (count > 0) wins[theme.id] = Math.min(count, MOST_COINS);
+    }
+  }
   const profile = {
     // No character yet means the player has not been through the
     // character screen, which is how a first visit is recognised.
     character: saved.character ? findCharacter(saved.character).id : null,
     name: saved.character ? cleanName(saved.name) : '',
-    coins: Math.max(0, Math.floor(Number(saved.coins) || 0)),
-    owned: [...new Set([...STARTER_PARTS, ...(Array.isArray(saved.owned) ? saved.owned : [])])],
+    coins: Math.min(MOST_COINS, Math.max(0, Math.floor(Number(saved.coins) || 0))),
+    owned: [...new Set([...STARTER_PARTS, ...(Array.isArray(saved.owned) ? saved.owned.filter((key) => typeof key === 'string') : [])])],
     tracks: [TRACKS[0].id, ...(Array.isArray(saved.tracks) ? saved.tracks : [])].filter((id, i, list) => list.indexOf(id) === i && TRACKS.some((theme) => theme.id === id)),
-    wins: { ...(saved.wins || {}) },
+    wins,
     difficulty: findDifficulty(saved.difficulty).id,
     build: null,
   };
@@ -87,7 +100,7 @@ export function buyTrack(profile, theme) {
  * Returns the track this opened, if any.
  */
 export function recordRace(profile, theme, place, coins) {
-  profile.coins += coins;
+  profile.coins = Math.min(MOST_COINS, profile.coins + coins);
   if (place !== 1) return null;
   profile.wins[theme.id] = (profile.wins[theme.id] || 0) + 1;
   const next = TRACKS[TRACKS.indexOf(theme) + 1];
