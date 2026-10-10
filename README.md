@@ -220,6 +220,19 @@ A car can never point more than about 25 degrees away from the way it is
 travelling (`TUNING.maxSlide`; snow allows more), which is what keeps it from
 feeling slippery however hard the steering is held over.
 
+The player also gets a helping hand, so that the road does not need watching
+every moment and there is time to look at the track (`ASSIST` in
+`src/race/car.js`). The car leans toward the way the road runs a little way
+ahead, less the harder the steering is held over, and is eased back toward
+the middle as it nears the edge of the tarmac. It is slight on purpose: a
+car with nobody steering gets about four times as far before it meets the
+wall, and still does not make it round the lap. A car pointing well away
+from the road is left alone, as the driver evidently means it. Rivals get
+none.
+
+The camera rides about ten metres behind the car and four above it, far
+enough back to see what is coming up beside the road as well as on it.
+
 Each lap is split into four sectors. A gate and a line across the road mark
 the end of each of the first three, and light up green as the player goes
 through. A small map at the top right shows the circuit, the sectors done
@@ -410,6 +423,24 @@ two-lane stretches are clear of the start, the checkpoints, the landmark and
 each other. Run it after adding scenery, moving a landmark or changing a
 layout.
 
+### The start screen
+
+Behind the title and the Play button the player's own car and the rivals
+come over the brow of a hill and jump at the camera, which lies in the road
+at the bottom looking up through a wide lens. Most land just in front of it
+and tear past; one goes over the top. Their time in the air is slowed down,
+while streaks of light rush by at full speed. It is a small scene of its
+own (`src/intro.js`), drawn on the game's canvas until Play is pressed.
+
+If a loading screen follows (the first time, while pictures of the tracks
+are taken), the last frame of that scene stays behind it. Every loading
+screen has lines of light fanning outward as if at speed. They are moved by
+CSS alone, and only by `transform` and `opacity`, so the browser keeps them
+going while the page is busy building a track.
+
+Someone who has asked their device for less movement gets one held frame of
+the scene and no lines.
+
 ## 3D engine
 
 Rendering is a small WebGL renderer written for this project (`src/engine/`):
@@ -496,6 +527,7 @@ manifest.webmanifest    home screen install: name, icons, fullscreen display
 styles/main.css         layout for portrait and landscape, safe areas, touch
 src/config.js           game name, laps, triangle budget, tuning constants
 src/main.js             boot, and moving between the garage and a race
+src/intro.js            the scene behind the start screen: cars jumping a hill at the camera
 src/profile.js          what is remembered about a player: driver, coins, parts, tracks
 src/characters.js       the drivers a player can be, drawn as SVG faces
 src/vehicle.js          assembles a vehicle from a build

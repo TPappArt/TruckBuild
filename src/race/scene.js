@@ -532,16 +532,18 @@ export function createRaceScene(renderer, view) {
     const speed = Math.min(1.5, Math.abs(car.speed) / car.maxSpeed);
     const fx = Math.sin(cameraHeading);
     const fz = Math.cos(cameraHeading);
-    const back = 7.6 + speed * 1.6;
+    const back = 9.6 + speed * 1.9;
 
     // Height: that of the road under the car, and of the road a little way
     // ahead for what the camera looks at, both eased so that the view glides.
     const here = car.index + car.along / track.spacing;
     const lift = snap ? 1 : 1 - Math.exp(-dt * 8);
     cameraY += (car.y - cameraY) * lift;
-    aheadY += (track.heightAt(here + 5 / track.spacing, car.offset) - aheadY) * lift;
-    camera.eye = [car.x - fx * back, cameraY + 3.5 + car.lift * 0.5, car.z - fz * back];
-    camera.target = [car.x + fx * 5, aheadY + 1.4 + car.lift * 0.6, car.z + fz * 5];
+    aheadY += (track.heightAt(here + 6.5 / track.spacing, car.offset) - aheadY) * lift;
+    // Far enough back and high enough up to see the road well ahead, and
+    // what is coming up beside it.
+    camera.eye = [car.x - fx * back, cameraY + 4.3 + car.lift * 0.5, car.z - fz * back];
+    camera.target = [car.x + fx * 6.5, aheadY + 1.5 + car.lift * 0.6, car.z + fz * 6.5];
 
     // In a tunnel the daylight goes.
     shade += ((track.roofAt(car.index, car.offset) ? 1 : 0) - shade) * (snap ? 1 : 1 - Math.exp(-dt * 4));

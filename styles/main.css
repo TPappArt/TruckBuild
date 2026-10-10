@@ -515,19 +515,15 @@ button:focus-visible {
   }
 }
 
-/* ---------- Race: the 3D view takes the whole screen ---------- */
+/* ---------- Race: the 3D view takes the whole screen ----------
+   (and "intro", the scene behind the start screen, in the same way) */
 
-body[data-screen='race'] #garage {
+body[data-screen='race'] #garage,
+body[data-screen='intro'] #garage {
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 
-body[data-screen='race'] #panel,
-body[data-screen='race'] #paints,
-body[data-screen='race'] #profile-chip,
-body[data-screen='race'] #wallet,
-body[data-screen='race'] #buy-bar,
-body[data-screen='race'] #shuffle-button,
-body[data-screen='race'] #race-button {
+body:is([data-screen='race'], [data-screen='intro']) :is(#panel, #paints, #profile-chip, #wallet, #buy-bar, #shuffle-button, #race-button) {
   display: none;
 }
 
@@ -1523,6 +1519,62 @@ body[data-screen='race'] #fullscreen-button {
   background: linear-gradient(transparent 30%, rgb(13 29 77 / 92%) 78%);
 }
 
+/* Speed lines: thin wedges of light fanning out from a point, grown from
+   small to large over and over. Only `transform` and `opacity` change, which
+   the browser can animate without the page's help. */
+#loading-rush {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#loading-rush i {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 70vmax;
+  height: 70vmax;
+  margin: -35vmax 0 0 -35vmax;
+  background: repeating-conic-gradient(
+    from 4deg,
+    transparent 0 6.4deg,
+    rgb(255 255 255 / 70%) 6.4deg 6.8deg,
+    transparent 6.8deg 15deg,
+    rgb(255 244 190 / 55%) 15deg 15.25deg,
+    transparent 15.25deg 23deg
+  );
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 22%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, transparent 22%, #000 55%, transparent 100%);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: rush 0.85s linear infinite;
+}
+
+#loading-rush i + i {
+  background: repeating-conic-gradient(
+    from 15deg,
+    transparent 0 9deg,
+    rgb(255 255 255 / 55%) 9deg 9.3deg,
+    transparent 9.3deg 19deg
+  );
+  animation-delay: -0.42s;
+}
+
+@keyframes rush {
+  from {
+    transform: scale(0.45);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.75;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
 #loading-panel {
   position: relative;
   display: flex;
@@ -1607,6 +1659,26 @@ body[data-screen='race'] #fullscreen-button {
   text-align: center;
 }
 
+/* With the jumping cars behind it (src/intro.js): the title goes to the top
+   and the button to the bottom, out of the way of the action, each over a
+   shade of blue so that it reads against sky or road. */
+body[data-screen='intro'] #start {
+  justify-content: flex-start;
+  padding-top: max(7vh, env(safe-area-inset-top));
+  padding-bottom: max(9vh, env(safe-area-inset-bottom));
+  background: linear-gradient(rgb(13 29 77 / 62%), transparent 30%, transparent 64%, rgb(13 29 77 / 78%));
+}
+
+body[data-screen='intro'] #start-title {
+  text-shadow:
+    0 0.07em 0 var(--navy-deep),
+    0 0.14em 0.5em rgb(13 29 77 / 70%);
+}
+
+body[data-screen='intro'] #start-button {
+  margin-top: auto;
+}
+
 #start-title {
   margin: 0;
   font-size: clamp(2.25rem, 11vmin, 5rem);
@@ -1662,6 +1734,7 @@ body[data-screen='race'] #fullscreen-button {
   }
 
   .art-rays,
+  #loading-rush i,
   #loading-wheel,
   #confetti i,
   .fx-zap.on {

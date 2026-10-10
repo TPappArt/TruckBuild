@@ -34,8 +34,9 @@ const KIND = { wait: 80, floor: 0.25, catchUp: 1.05, trigger: 0.2 };
  *          { wait, floor, catchUp, trigger }.
  * random:  source of randomness; pass a seeded one for repeatable races.
  * events:  false to race on an empty road with no hazard.
+ * assist:  how much steering help the player gets (see ASSIST in car.js): 0 to 1.
  */
-export function createSession({ track, surface, hazard, feature, laps = 3, drivers, rules = KIND, random = Math.random, events = true }) {
+export function createSession({ track, surface, hazard, feature, laps = 3, drivers, rules = KIND, random = Math.random, events = true, assist = 1 }) {
   const limits = speedLimits(track, surface);
   const between = ([low, high]) => low + (high - low) * random();
 
@@ -123,7 +124,8 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
         // `auto` puts the computer in the player's seat (simulations, and the
         // pictures of each track).
         const human = racer.isPlayer && !racer.finished && !racer.auto;
-        stepCar(car, human ? playerInput : drive(racer), dt, track, surface);
+        // A person gets a little steering help; the computer needs none.
+        stepCar(car, human ? playerInput : drive(racer), dt, track, surface, human ? assist : 0);
       }
       countLap(racer, previous);
     }

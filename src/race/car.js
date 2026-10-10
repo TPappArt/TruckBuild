@@ -36,7 +36,21 @@ export const EFFECTS = {
   freeze: { time: 4 }, // freeze pickup: every other car stops dead
 };
 
+// A helping hand for the player, so that the road does not need watching
+// every moment: the car leans toward the way the road runs, and is eased
+// back from the kerb before it leaves the tarmac. It is deliberately slight.
+// On its own it will not get a car round a bend; it takes the edge off.
+export const ASSIST = {
+  look: 14, // metres ahead: the car is turned toward the way the road runs there
+  turn: 1.25, // how hard: radians a second of turn, per radian the car is off that line
+  yield: 0.65, // how much of the help goes when the steering is held hard over
+  giveUp: 1.0, // radians off the road's direction at which it stops helping (the driver means it)
+  margin: 5.5, // metres in from the edge of the tarmac where it starts easing the car back
+  pull: 9.5, // how hard, m/s per second, by the time the car reaches the edge
+};
+
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const NO_INPUT = { steer: 0, throttle: 0, brake: 0 };
 
 export function createCar(track, gridIndex, gridOffset) {
@@ -80,8 +94,10 @@ export function createCar(track, gridIndex, gridOffset) {
  * Advances a car by `dt` seconds.
  * input = { steer: -1..1, throttle: 0..1, brake: 0..1 }
  * surface = { grip, offroad } from the track's theme.
+ * assist = how much of the steering help (ASSIST) this car gets: 0 for none,
+ *          1 for all of it. Only a car a person is driving gets any.
  */
-export function stepCar(car, input, dt, track, surface) {
+export function stepCar(car, input, dt, track, surface, assist = 0) {
   const effects = car.effects;
   for (const name of Object.keys(effects)) effects[name] = Math.max(0, effects[name] - dt);
 
@@ -100,6 +116,19 @@ export function stepCar(car, input, dt, track, surface) {
   car.vx += car.push[0] * dt;
   car.vz += car.push[1] * dt;
   const slipping = effects.slip > 0;
+  const helped = assist > 0 && !stunned && !slipping;
+
+  // Eased back toward the middle as the car nears the edge of the tarmac.
+  if (helped) {
+    const out = Math.abs(car.offset) - (track.halfWidth - ASSIST.margin);
+    if (out > 0) {
+      const side = Math.sign(car.offset);
+      const pull = ASSIST.pull * Math.min(1.4, out / ASSIST.margin) * assist * dt;
+      // (-tz, tx) is the road's right-hand side.
+      car.vx += track.tz[car.index] * side * pull;
+      car.vz -= track.tx[car.index] * side * pull;
+    }
+  }
 
   car.steer += (clamp(input.steer, -1, 1) - car.steer) * Math.min(1, dt * TUNING.steerResponse);
 
@@ -150,6 +179,17 @@ export function stepCar(car, input, dt, track, surface) {
   const fade = 1 - TUNING.turnFade * Math.min(1, Math.abs(forward) / TUNING.maxSpeed);
   const authority = slipping ? EFFECTS.slip.steering : 1;
   car.heading -= car.steer * TUNING.turn * bite * fade * authority * dt;
+
+  // And turned a little toward the way the road goes just ahead. Less the
+  // harder the driver is steering, and not at all for a car pointing well
+  // away from the road, reversing, or barely moving.
+  if (helped && forward > 2) {
+    const ahead = track.pointAt(car.index + (car.along + ASSIST.look) / track.spacing).heading;
+    const off = wrapAngle(ahead - car.heading);
+    const willing = Math.max(0, 1 - Math.abs(off) / ASSIST.giveUp);
+    const hands = 1 - ASSIST.yield * Math.abs(car.steer);
+    car.heading += off * ASSIST.turn * willing * hands * bite * assist * dt;
+  }
 
   car.x += car.vx * dt;
   car.z += car.vz * dt;
@@ -296,8 +336,6 @@ export function speedLimits(track, surface) {
   }
   return limits;
 }
-
-const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /**
  * Computer driver: aims at a point further down its lane and keeps to a

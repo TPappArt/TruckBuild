@@ -18,11 +18,15 @@ adb shell am start -W -n "$APP/.MainActivity" || fail "The app would not start."
 sleep 20
 adb exec-out screencap -p > dist/android-1-start.png
 
-# Play is in the middle of the screen, a little below centre.
+# Play is near the bottom of the screen, under the jumping cars. (If that
+# scene could not be drawn it is in the middle instead: try there first,
+# where a tap does nothing otherwise.)
 SIZE="$(adb shell wm size | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -1)"
 WIDTH="${SIZE% *}"
 HEIGHT="${SIZE#* }"
 adb shell input tap $((WIDTH / 2)) $((HEIGHT * 545 / 1000))
+sleep 1
+adb shell input tap $((WIDTH / 2)) $((HEIGHT * 877 / 1000))
 # The first time, it takes a picture of every track before going on.
 sleep 75
 adb exec-out screencap -p > dist/android-2-after-play.png

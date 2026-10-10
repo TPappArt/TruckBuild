@@ -11,6 +11,7 @@ import {
 } from './fullscreen.js';
 import { createGarageScene } from './garage/scene.js';
 import { createGovernor } from './governor.js';
+import { createIntro } from './intro.js';
 import { createThumbnailer } from './garage/thumbnails.js';
 import { createGarageUI } from './garage/ui.js';
 import { createLoop } from './loop.js';
@@ -270,15 +271,16 @@ function startGame() {
 
   /**
    * Takes any pictures of the tracks that are missing, behind a loading
-   * screen, then asks a new player who they are.
+   * screen, then asks a new player who they are. `backdrop` is a picture to
+   * show behind that loading screen.
    */
-  async function welcome() {
+  async function welcome(backdrop = null) {
     // The first track is photographed last, so that it is the one still
     // built when the player goes to race on it.
     const missing = TRACKS.filter((theme) => !pictures[theme.id]).reverse();
     if (missing.length) {
       busy = true;
-      loading.show({ title: GAME.name, text: 'Getting the tracks ready' });
+      loading.show({ title: GAME.name, text: 'Getting the tracks ready', image: backdrop });
       await paint();
       const shownAt = performance.now();
       const grid = () => makeGrid(profile.build, { name: profile.name, character: profile.character }, difficulty());
@@ -338,7 +340,38 @@ function startGame() {
     },
   });
 
-  return { loop, welcome };
+  // ---------- Behind the start screen ----------
+
+  /**
+   * The scene behind the start screen: the player's car and the rivals
+   * jumping over a hill at the camera (intro.js). Null if it could not be
+   * built, in which case the start screen is its plain self.
+   */
+  function makeIntro() {
+    try {
+      const grid = makeGrid(profile.build, profile, difficulty());
+      // The player's own car first: that is the one that goes over the lens.
+      const builds = [grid[grid.length - 1], ...grid.slice(0, -1)].map((driver) => driver.build);
+      const intro = createIntro(renderer, view, builds);
+      // Building those borrowed the shared paint; the garage wants it back.
+      garage.setBuild(profile.build);
+      return intro;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  return {
+    loop,
+    welcome,
+    makeIntro,
+    view,
+    /** True if a loading screen is coming after Play: there are track pictures still to take. */
+    get loadingAhead() {
+      return TRACKS.some((theme) => !pictures[theme.id]);
+    },
+  };
 }
 
 // The corner button offers a way back in after the player leaves fullscreen
@@ -361,13 +394,51 @@ if (game && !fullscreenSupported && !isInstalled()) {
   showHint('For fullscreen, add this page to your home screen.');
 }
 
+// Until Play is pressed, the cars jump. The scene is drawn on the game's own
+// canvas, which fills the screen meanwhile.
+let intro = game?.makeIntro() ?? null;
+let introFrame = 0;
+if (intro) {
+  document.body.dataset.screen = 'intro';
+  const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let last = performance.now();
+  const tick = (now) => {
+    if (!intro) return;
+    intro.update(Math.min(0.05, (now - last) / 1000));
+    last = now;
+    intro.render();
+    introFrame = requestAnimationFrame(tick);
+  };
+  if (calm) {
+    // For someone who has asked for less movement: one moment of it, held.
+    game.view.onResize(() => intro?.render());
+  } else {
+    introFrame = requestAnimationFrame(tick);
+  }
+}
+
 startButton.addEventListener('click', async () => {
+  // The scene as it is right now goes behind the loading screen that may
+  // follow, and then the scene itself is finished with.
+  let backdrop = null;
+  if (intro) {
+    cancelAnimationFrame(introFrame);
+    try {
+      if (game.loadingAhead) backdrop = intro.picture();
+    } catch {
+      // No picture: the loading screen is plain.
+    }
+    intro.dispose();
+    intro = null;
+  }
   // Has to happen inside the click: browsers refuse fullscreen otherwise.
   if (!isInstalled()) await enterFullscreen();
   startScreen.hidden = true;
+  // (The last frame of the scene stays on the canvas until here.)
+  document.body.dataset.screen = 'garage';
   refreshFullscreenButton();
   game.loop.start();
-  game.welcome();
+  game.welcome(backdrop);
 });
 
 fullscreenButton.addEventListener('click', () => enterFullscreen());

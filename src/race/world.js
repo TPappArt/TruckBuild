@@ -307,7 +307,12 @@ function checkpointGate(track, road) {
   return k.node;
 }
 
-function buildSky(theme) {
+/**
+ * A sky to go round the camera: a dome shading from the fog colour at the
+ * horizon to `theme.sky.top`, with stars, a sun or moon and clouds as the
+ * theme asks. One mesh.
+ */
+export function buildSky(theme) {
   const top = linear(theme.sky.top);
   const horizon = linear(theme.fog.color);
   const dome = pointAlong(ball({ r: 90, seg: 16, rings: 6, half: true }), 'y');
