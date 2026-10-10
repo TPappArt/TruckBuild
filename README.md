@@ -420,7 +420,7 @@ It is fast because of how little it draws. Anything static is merged into a
 single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
 scenery is one or two draw calls, and a car is two to six however elaborate
 the build, and so is the sky, stars and all. A track is 35 to 60 thousand
-triangles, ground, scenery and built road together. A race is 75 to 100
+triangles, ground, scenery and built road together. A race is about 90
 draw calls, most of them the cars and the pickups near them with their
 rings, halos and shadows; pickups out of sight are not drawn. Two built
 tracks are kept in memory at a time.
