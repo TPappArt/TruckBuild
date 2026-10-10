@@ -52,7 +52,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: npm run build:android
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: android-app
           path: dist/TruckBuild.apk
@@ -74,7 +74,7 @@ jobs:
           disable-animations: true
           script: bash android/smoke-test.sh
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: android-test
@@ -114,7 +114,7 @@ jobs:
           if (-not (Test-Path 'dist\TruckBuild-Setup.exe')) { Write-Output '::error::No setup program was made.'; exit 1 }
           Get-ChildItem dist\*.exe | ForEach-Object { Write-Output "::notice title=Windows build::$($_.Name): $([math]::Round($_.Length / 1MB, 1)) MB" }
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: windows-installer
           path: |
@@ -126,7 +126,7 @@ jobs:
         shell: pwsh
         run: ./desktop/smoke-test.ps1
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: windows-test
