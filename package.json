@@ -7,7 +7,8 @@
     "dev": "node scripts/dev-server.mjs",
     "rename": "node scripts/rename.mjs",
     "check": "node scripts/check-parts.mjs",
-    "simulate": "node scripts/simulate-race.mjs"
+    "simulate": "node scripts/simulate-race.mjs",
+    "check:tracks": "node scripts/check-tracks.mjs"
   },
   "engines": {
     "node": ">=18"

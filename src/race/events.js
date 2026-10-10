@@ -55,11 +55,36 @@ export function createEvents(track, random, bang = () => {}, keepOut = []) {
   const taken = keepOut.map((range) => ({ ...range }));
   const inside = (index, range, margin) => track.wrap(index - range.from + margin) < track.wrap(range.to - range.from) + margin * 2;
   const free = (index, margin = 5) => !taken.some((range) => inside(index, range, margin));
+
+  // Where the road climbs, dives or divides (track.js sections), only the
+  // loose items go: no rows of boosts, no strips, and no trampolines there
+  // or just before, since a car in flight follows neither slope nor island.
+  const graded = track.sections.map((section) => ({ from: section.from, to: section.from + section.length }));
+  const level = (index, lead = 0) => !graded.some((range) => track.wrap(index - range.from + lead + 3) < track.wrap(range.to - range.from) + lead + 6);
+  const onLevel = (index, length = 0) => level(index) && level(index + length);
+
+  /** Where on the road an item at a sample may sit: not on an island, and not off the inside of a bend. */
+  function across(index, wanted) {
+    const island = track.dividerAt(index);
+    let offset = wanted;
+    if (island > 0 && Math.abs(offset) < island + 2.8) {
+      const side = offset >= 0 ? 1 : -1;
+      offset = side * (island + 2.8 + random() * Math.max(0, track.halfWidth - island - 5));
+    }
+    const edge = track.edgeAt(index, Math.sign(offset) || 1) - 2.4;
+    return Math.max(-edge, Math.min(edge, offset));
+  }
+  /** Puts an item at a sample and offset, filling in where that is in the world. */
+  function settle(item, index, offset) {
+    const at = track.pointAt(index, offset);
+    Object.assign(item, { index, offset, x: at.x, z: at.z, heading: at.heading, y: track.heightAt(index, offset), level: !track.sectionAt(index) });
+    return item;
+  }
   /** The nearest free sample at or after `index`. */
   const nextFree = (index, length = 0) => {
     for (let step = 0; step < track.count; step++) {
       const from = track.wrap(index + step);
-      if (free(from, 6) && free(from + length, 6)) return from;
+      if (free(from, 6) && free(from + length, 6) && onLevel(from, length)) return from;
     }
     return track.wrap(index);
   };
@@ -69,9 +94,8 @@ export function createEvents(track, random, bang = () => {}, keepOut = []) {
     const index = nextFree(Math.round(track.count * share));
     taken.push({ from: index - 3, to: index + 3 });
     for (let i = 0; i < BOOSTS_PER_ROW; i++) {
-      const offset = ((i / (BOOSTS_PER_ROW - 1)) * 2 - 1) * (track.halfWidth - 2.5);
-      const at = track.pointAt(index, offset);
-      items.push({ kind: 'boost', fixed: true, active: true, timer: 0, index, offset, x: at.x, z: at.z, heading: at.heading });
+      const offset = across(index, ((i / (BOOSTS_PER_ROW - 1)) * 2 - 1) * (track.halfWidth - 2.5));
+      items.push(settle({ kind: 'boost', fixed: true, active: true, timer: 0 }, index, offset));
     }
   }
 
@@ -99,18 +123,19 @@ export function createEvents(track, random, bang = () => {}, keepOut = []) {
       // and not on top of another item.
       if (index < 26 || index > track.count - 14) continue;
       if (!free(index)) continue;
+      if (item.kind === 'trampoline' && !level(index, 45)) continue;
+      // Nothing sits on a slope.
+      if (Math.abs(track.heightAt(index + 2, 1) - track.heightAt(index - 2, 1)) + Math.abs(track.heightAt(index + 2, -1) - track.heightAt(index - 2, -1)) > 0.2) continue;
       const crowded = items.some((other) => other !== item && Math.abs(track.wrap(other.index - index + 9) - 9) < 9);
       if (crowded) continue;
-      const offset = (random() * 2 - 1) * (track.halfWidth - 2);
-      const at = track.pointAt(index, offset);
-      Object.assign(item, { index, offset, x: at.x, z: at.z, heading: at.heading });
+      settle(item, index, across(index, (random() * 2 - 1) * (track.halfWidth - 2)));
       return;
     }
   }
 
   for (const [kind, count] of Object.entries(COUNTS)) {
     for (let i = 0; i < count; i++) {
-      const item = { kind, active: true, timer: kind === 'oil' ? between(OIL_MOVES) : 0, index: 0, x: 0, z: 0 };
+      const item = { kind, active: true, timer: kind === 'oil' ? between(OIL_MOVES) : 0, index: 0, x: 0, z: 0, y: 0, level: true };
       findSpot(item);
       items.push(item);
     }

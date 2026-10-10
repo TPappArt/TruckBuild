@@ -5,7 +5,7 @@ import { Node } from '../engine/node.js';
 import { kit } from '../parts/kit.js';
 import { cornerSign } from './dressing.js';
 import { featureSite } from './features.js';
-import { SECTORS } from './session.js';
+import { buildRoadworks, islandTop, roadworksFootprint } from './roadworks.js';
 import { buildSetPiece, paintSetPiece, paintSetPieceUnder, setPieceFootprint } from './setpieces.js';
 import { createTrack } from './track.js';
 
@@ -132,16 +132,22 @@ function createPainter() {
 function paintRoad(paint, track, road, random) {
   const n = track.count;
   const half = track.halfWidth;
+  // On the inside of a tight bend the road stops short of the middle of
+  // the bend (track.clamp), so that its edges never cross over.
   const at = (i, offset) => {
-    // On the inside of a tight bend the edge of the road would cross over
-    // itself; stop just short of the centre of the bend instead.
-    const bend = track.curvature[track.wrap(Math.round(i))];
-    if (bend * offset > 0) offset = Math.sign(offset) * Math.min(Math.abs(offset), 0.85 / Math.abs(bend));
-    const p = track.pointAt(i, offset);
+    const p = track.pointAt(i, track.clamp(i, offset));
     return [p.x, p.z];
   };
+  // Where the road climbs, dives or divides it is built, not painted
+  // (roadworks.js), so the paint leaves those stretches alone.
+  const built = (i) => Boolean(track.sectionAt(Math.floor(i)));
+  // The paint runs one step in under each end of a built stretch. Built road
+  // sits a finger above the ground, and seen from a car the join would
+  // otherwise show as a hairline of bare ground across the road.
+  const covered = (i) => built(i - 1) && built(i + 1);
   const strip = (from, to, look, every = 1, on = 1) => {
     for (let i = 0; i < n; i++) {
+      if (covered(i)) continue;
       const chosen = typeof look === 'function' ? look(i) : look;
       if (every > 1 && i % every >= on) continue;
       if (chosen) paint.polygon([at(i, from), at(i, to), at(i + 1, to), at(i + 1, from)], chosen);
@@ -151,6 +157,7 @@ function paintRoad(paint, track, road, random) {
   // A ragged verge: tongues of the shoulder reaching out into the ground,
   // so the edge of the track is not a ruled line.
   for (let i = 0; i < n; i++) {
+    if (covered(i)) continue;
     for (const side of [1, -1]) {
       const reach = track.limit + 0.4 + random() * random() * 3.2;
       const tip = at(i + 0.3 + random() * 0.4, side * reach);
@@ -167,6 +174,7 @@ function paintRoad(paint, track, road, random) {
       const offset = side * (half + 0.8 + random() * (track.shoulder - 1.6));
       const length = 1 + random() * 2.5;
       const wide = 0.15 + random() * 0.35;
+      if (built(i) || built(i + length)) continue;
       paint.polygon([at(i, offset), at(i + length, offset + wide * 0.5), at(i + length, offset + wide), at(i, offset + wide)], road.wear);
     }
   }
@@ -179,6 +187,7 @@ function paintRoad(paint, track, road, random) {
       const length = 2 + Math.floor(random() * 4);
       const wide = 1.6 + random() * 3.4;
       const offset = (random() * 2 - 1) * (half - wide - 1.4);
+      if (built(i) || built(i + length)) continue;
       for (let j = 0; j < length; j++) {
         paint.polygon([at(i + j, offset), at(i + j, offset + wide), at(i + j + 1, offset + wide), at(i + j + 1, offset)], road.patch);
       }
@@ -192,6 +201,7 @@ function paintRoad(paint, track, road, random) {
       const out = -Math.sign(track.curvature[i]);
       const length = 4 + Math.floor(random() * 7);
       const start = (random() * 2 - 1) * (half - 5);
+      if (built(i) || built(i + length)) continue;
       for (const wheel of [0, 1.5]) {
         for (let j = 0; j < length; j++) {
           const a = start + wheel + out * (j / length) ** 2 * 3;
@@ -360,10 +370,16 @@ export function buildWorld(theme) {
   const track = createTrack(theme.layout);
   const random = seeded(theme.seed);
 
-  // The landmark, if the track has one, and the ground it takes up.
+  // The landmark, if the track has one, and the ground it takes up; and
+  // the same for the stretches where the road leaves the flat.
   const site = featureSite(theme.feature, track);
-  const taken = site ? setPieceFootprint(site, track) : () => false;
-  const onSite = (index) => site && track.wrap(index - site.from + 3) <= track.wrap(site.to - site.from) + 6;
+  const landmark = site ? setPieceFootprint(site, track) : () => false;
+  const works = roadworksFootprint(track);
+  const taken = (x, z) => landmark(x, z) || works(x, z);
+  // Stretches that look after their own edges: no marker posts or arrow boards.
+  const onSite = (index) =>
+    (site && track.wrap(index - site.from + 3) <= track.wrap(site.to - site.from) + 6) ||
+    Boolean(track.sectionAt(index - 2) || track.sectionAt(index + 2));
 
   // Scenery: copies of a few prototype props, merged into one mesh at the end.
   const set = new Node();
@@ -513,8 +529,7 @@ export function buildWorld(theme) {
   // finishes at the start line.
   const gate = checkpointGate(track, theme.road);
   const checkpoints = [];
-  for (let k = 1; k < SECTORS; k++) {
-    const index = Math.round((track.count * k) / SECTORS);
+  for (const index of track.checkpoints) {
     const p = track.pointAt(index, 0);
     put(gate, p.x, p.z, { turn: p.heading });
     checkpoints.push({ index, x: p.x, z: p.z, heading: p.heading });
@@ -522,7 +537,22 @@ export function buildWorld(theme) {
 
   if (site) buildSetPiece(site, track, (model, x = 0, z = 0, turn = 0, scale = 1) => put(model, x, z, { turn, scale }), random);
 
-  const scenery = bake(set);
+  // Something growing or standing along each island, if the theme has a
+  // thing for it: a row of palms, lamp posts, pines.
+  const median = theme.median?.();
+  if (median) {
+    for (const section of track.sections) {
+      for (let i = 4; i < section.length - 3; i += 5) {
+        const index = section.from + i;
+        if (track.dividerAt(index) < 2) continue;
+        const p = track.pointAt(index, 0);
+        put(median, p.x, p.z, { turn: p.heading + (i % 2 ? 0.4 : -0.3), y: islandTop(track, index), scale: (theme.medianScale ?? 1) * (0.9 + (i % 3) * 0.12) });
+      }
+    }
+  }
 
-  return { theme, track, ground, scenery, sky: buildSky(theme), site, checkpoints };
+  const scenery = bake(set);
+  const { decks, openings } = buildRoadworks(track, theme);
+
+  return { theme, track, ground, scenery, decks, openings, sky: buildSky(theme), site, checkpoints };
 }

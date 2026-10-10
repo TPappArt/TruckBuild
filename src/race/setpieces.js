@@ -228,15 +228,15 @@ export const pillarGeometry = () =>
 function buildPyramid(site, track, add) {
   add(pyramidHall(hallWidth(track)), site.x, site.z, site.heading);
 
-  // Sphinxes guard both doorways, looking down the road.
-  const fx = Math.sin(site.heading);
-  const fz = Math.cos(site.heading);
+  // Sphinxes guard both doorways, looking down the road. They stand beside
+  // the road as it is out there, which has started to bend: lined up with
+  // the hall instead, one of them ends up with a paw on the verge.
   const guard = sphinx();
+  const out = 9 / track.spacing;
   for (const end of [1, -1]) {
     for (const side of [1, -1]) {
-      const across = side * (hallWidth(track) + 8);
-      const out = end * (HALL.base + 9);
-      add(guard, site.x - fz * across + fx * out, site.z + fx * across + fz * out, site.heading + (end > 0 ? 0 : Math.PI), 1.25);
+      const p = track.pointAt(end > 0 ? site.to + out : site.from - out, side * (track.limit + 6.5));
+      add(guard, p.x, p.z, p.heading + (end > 0 ? 0 : Math.PI), 1.25);
     }
   }
   // Fires line the way in, where the mummies start to stir.
@@ -805,7 +805,7 @@ function buildGraveyard(site, track, add, random) {
 
   // The manor, set back from the road at the end of its path.
   const front = road.point(middle, side * (track.limit + 25));
-  add(manor(), front.x, front.z, front.heading - (side * Math.PI) / 2, 1.45);
+  add(manor(), front.x, front.z, front.heading + (side * Math.PI) / 2, 1.45);
   const tree = gnarledTree();
   for (const [out, down, scale] of [[20, -11, 1.5], [24, 12, 1.9], [12, -17, 1.2], [14, 19, 1.3]]) {
     const p = road.point(middle + down, side * (track.limit + out));
@@ -1035,7 +1035,7 @@ function buildStreet(site, track, add, random) {
     add(box, c.x, c.z, random() * 3);
     add(box, c.x + 0.3, c.z + 0.2, random() * 3, 0.7).position[1] = 1.2;
     const d = road.point(i + 4.5, -out);
-    add(lamp, d.x, d.z, d.heading + (side * Math.PI) / 2 + (random() < 0.4 ? 0.25 : 0));
+    add(lamp, d.x, d.z, d.heading - (side * Math.PI) / 2 + (random() < 0.4 ? 0.25 : 0));
   }
 }
 

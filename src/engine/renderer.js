@@ -173,6 +173,8 @@ function noiseTile(size) {
 }
 
 const WHITE = [1, 1, 1];
+const OPENING = 0x80; // stencil bit: the ground is cut away here
+const SHADOW_LIFT = 0.08; // metres a shadow is drawn above what it falls on
 const DEFAULT_BOUNCE = [0.42, 0.5, 0.68];
 
 export function createRenderer(canvas) {
@@ -316,9 +318,16 @@ export function createRenderer(canvas) {
    *   grain:    optional strength of the mottling on upward-facing surfaces,
    *   pulse:    optional brightness multiplier for glowing surfaces,
    *   sky:      optional Node drawn unlit behind everything, centred on the camera,
-   *   ground:   optional Node of flat layers at y = 0, drawn in order with no depth test,
+   *   ground:   optional Node of flat layers at y = 0, painted one over the
+   *             other in order. It hides whatever is below y = 0,
+   *   openings: optional Node of flat shapes at y = 0 where the ground is
+   *             cut away, so that what is below shows (a road in a cutting),
+   *   decks:    optional Nodes drawn lit before the shadows, so that shadows
+   *             can fall on them: stretches of road that are off the ground,
    *   solids:   Nodes drawn lit and depth tested,
-   *   casters:  Nodes whose shadow falls on the ground (usually also in solids),
+   *   casters:  what casts a shadow (usually also in solids): Nodes, whose
+   *             shadow falls on the ground, or { node, height } for one
+   *             whose shadow falls on a surface at that height,
    *   shadow:   optional { strength, clipRadius },
    *   glows:    optional Nodes drawn last as soft see-through halos,
    * }
@@ -338,6 +347,7 @@ export function createRenderer(canvas) {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.depthMask(true);
+    gl.stencilMask(0xff);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
     gl.useProgram(program);
 
@@ -375,31 +385,87 @@ export function createRenderer(canvas) {
     }
 
     gl.uniform1f(uniforms.uFogDensity, fog ? fog.density : 0);
+    gl.uniform1f(uniforms.uPass, 0);
 
-    if (scene.ground) {
-      gl.uniform1f(uniforms.uPass, 0);
-      draw(scene.ground);
+    // Where the ground is cut away is marked in the top bit of the stencil
+    // buffer first, and the ground is then painted everywhere else.
+    const holes = Boolean(scene.openings && scene.ground);
+    if (holes) {
+      gl.enable(gl.STENCIL_TEST);
+      gl.stencilMask(OPENING);
+      gl.stencilFunc(gl.ALWAYS, OPENING, OPENING);
+      gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+      gl.colorMask(false, false, false, false);
+      gl.disable(gl.CULL_FACE);
+      draw(scene.openings);
+      gl.enable(gl.CULL_FACE);
+      gl.colorMask(true, true, true, true);
+      gl.stencilMask(0xff);
     }
 
+    if (scene.ground) {
+      // The layers all lie in one plane, so they are painted in order with
+      // no depth comparison. They do record their depth, though: the ground
+      // then hides anything under it, such as the buried part of a boulder
+      // or a mummy that has not come up yet.
+      // The depth is nudged a little further away, so that things resting
+      // on the ground (a stretch of built road, a shadow) are never caught
+      // in it, however shallow the angle they are seen at.
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.ALWAYS);
+      gl.depthMask(true);
+      gl.enable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(2, 24);
+      if (holes) {
+        gl.stencilFunc(gl.EQUAL, 0, OPENING);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      }
+      draw(scene.ground);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.depthFunc(gl.LEQUAL);
+    }
+    if (holes) gl.disable(gl.STENCIL_TEST);
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);
+    if (scene.decks) for (const deck of scene.decks) draw(deck);
+
     if (scene.shadow && scene.casters?.length && light[1] > 0.01) {
-      // Squash the casters onto the ground along the light direction. The
-      // stencil buffer stops overlapping parts from darkening a spot twice.
-      flatten[4] = -light[0] / light[1];
-      flatten[5] = 0;
-      flatten[6] = -light[2] / light[1];
+      // Squash the casters flat along the light direction, onto the ground
+      // or onto a surface at the caster's own height. Shadows are drawn a
+      // finger above that surface and are hidden by whatever is in front.
+      // The stencil buffer stops overlapping parts from darkening a spot
+      // twice, and keeps ground shadows from hanging over a cutting.
       gl.uniform1f(uniforms.uPass, 1);
       gl.uniform1f(uniforms.uShadow, scene.shadow.strength ?? 0.3);
       gl.uniform1f(uniforms.uClip, scene.shadow.clipRadius ?? 0);
+      gl.depthMask(false);
       gl.disable(gl.CULL_FACE);
       gl.enable(gl.STENCIL_TEST);
-      gl.stencilFunc(gl.EQUAL, 0, 0xff);
+      gl.stencilMask(0xff & ~OPENING);
       gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
       gl.enable(gl.BLEND);
       gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-      for (const caster of scene.casters) draw(caster, flatten);
+      const slopeX = light[0] / light[1];
+      const slopeZ = light[2] / light[1];
+      flatten[4] = -slopeX;
+      flatten[5] = 0;
+      flatten[6] = -slopeZ;
+      for (const caster of scene.casters) {
+        const node = caster.node || caster;
+        const height = caster.node ? caster.height : 0;
+        flatten[12] = height * slopeX;
+        flatten[13] = height + SHADOW_LIFT;
+        flatten[14] = height * slopeZ;
+        gl.stencilFunc(gl.EQUAL, 0, height === 0 ? 0xff : 0xff & ~OPENING);
+        draw(node, flatten);
+      }
       gl.disable(gl.BLEND);
       gl.disable(gl.STENCIL_TEST);
+      gl.stencilMask(0xff);
       gl.enable(gl.CULL_FACE);
+      gl.uniform1f(uniforms.uClip, 0);
     }
 
     gl.enable(gl.DEPTH_TEST);

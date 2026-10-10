@@ -124,6 +124,11 @@ export const city = {
     ],
     halfWidth: 15.75,
     shoulder: 5,
+    // Where the road leaves the flat: see race/track.js.
+    sections: [
+      { kind: 'over', around: 0.11, metres: 120 },
+      { kind: 'fork', around: 0.845, metres: 150 },
+    ],
   },
   surface: { grip: 8.5, offroad: 0.5 },
   hazard: 'meteor', // see race/hazards.js
@@ -162,6 +167,19 @@ export const city = {
     chequerLight: material('#f1efe6'),
   },
   preview: { ground: '#6a6058', road: '#3a3b40', accent: '#f2c230' },
+
+  // Flyovers, underpasses and central reservations: concrete and hazard
+  // paint, with street lamps down the middle.
+  works: {
+    wall: concrete,
+    wallDark: concreteDark,
+    trim: hazard,
+    roof: material('#2c2a30', { spec: 0.05 }),
+    lamp: lit,
+    island: material('#5a5855', { spec: 0 }),
+    arch: material('#3a3b40', { spec: 0 }),
+  },
+  median: () => lampPost(concreteDark, lit, 6),
 
   paintGround({ paint, random, track }) {
     const tones = [dirt, dirtDark, material('#736a5e'), material('#625c54')];
@@ -222,7 +240,7 @@ export const city = {
     for (let i = 8; i < track.count; i += 22) {
       const side = (i / 22) % 2 < 1 ? 1 : -1;
       const p = track.pointAt(i, side * (track.limit + 2.2));
-      if (track.distanceTo(p.x, p.z) > track.limit + 1) place(i % 5 ? lamp : lampDead, p.x, p.z, { turn: p.heading - (side * Math.PI) / 2 + (i % 7 === 0 ? 0.2 : 0) });
+      if (track.distanceTo(p.x, p.z) > track.limit + 1) place(i % 5 ? lamp : lampDead, p.x, p.z, { turn: p.heading + (side * Math.PI) / 2 + (i % 7 === 0 ? 0.2 : 0) });
     }
 
     const cars = [wreck(rust), wreck(material('#6b7a86', { spec: 0.3 })), wreck(material('#4f9a6a', { spec: 0.3 }))];

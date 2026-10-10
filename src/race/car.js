@@ -67,7 +67,10 @@ export function createCar(track, gridIndex, gridOffset) {
     flight: null, // set while a trampoline has the car in the air
     push: [0, 0], // outside force this step, as an acceleration (wind)
 
-    // For drawing only: height off the ground and extra spin.
+    // For drawing only: the height of the road under the car and its slope
+    // (see track.js sections), how far off it the car is, and extra spin.
+    y: 0,
+    slope: 0,
     lift: 0,
     twirl: 0,
   };
@@ -161,24 +164,41 @@ export function stepCar(car, input, dt, track, surface) {
 
   // Soft wall at the edge of the shoulder: slide along it, lose some speed.
   car.hitWall = false;
-  const over = Math.abs(car.offset) - track.limit;
-  if (over > 0) {
-    const side = Math.sign(car.offset);
-    const nx = -track.tz[car.index] * side;
-    const nz = track.tx[car.index] * side;
-    car.x -= nx * over;
-    car.z -= nz * over;
-    const outward = car.vx * nx + car.vz * nz;
-    if (outward > 0) {
-      car.vx -= nx * outward * 1.2;
-      car.vz -= nz * outward * 1.2;
-    }
-    const scrub = Math.exp(-1.5 * dt);
-    car.vx *= scrub;
-    car.vz *= scrub;
-    car.offset = side * track.limit;
-    car.hitWall = true;
+  const edge = track.edgeAt(car.index, Math.sign(car.offset));
+  const over = Math.abs(car.offset) - edge;
+  if (over > 0) shove(car, track, -Math.sign(car.offset), over, dt);
+
+  // Where the road is divided, the island is just as solid. It starts as a
+  // point and widens, so a car that meets it head on is eased to one side.
+  const island = track.dividerAt(car.index + car.along / track.spacing);
+  if (island > 0) {
+    const short = island + ISLAND_GAP - Math.abs(car.offset);
+    if (short > 0) shove(car, track, car.offset >= 0 ? 1 : -1, short, dt);
   }
+}
+
+const ISLAND_GAP = 0.9; // metres a car's centre keeps from the island
+
+/**
+ * Pushes a car `distance` metres sideways off something solid: toward the
+ * right of the road (way 1) or the left (-1). It keeps its speed along the
+ * obstacle and loses what it was carrying into it.
+ */
+function shove(car, track, way, distance, dt) {
+  const nx = -track.tz[car.index] * way;
+  const nz = track.tx[car.index] * way;
+  car.x += nx * distance;
+  car.z += nz * distance;
+  const into = car.vx * nx + car.vz * nz;
+  if (into < 0) {
+    car.vx -= nx * into * 1.2;
+    car.vz -= nz * into * 1.2;
+  }
+  const scrub = Math.exp(-1.5 * dt);
+  car.vx *= scrub;
+  car.vz *= scrub;
+  car.offset += way * distance;
+  car.hitWall = true;
 }
 
 /**
@@ -242,6 +262,10 @@ export function locate(car, track) {
   car.offset = at.offset;
   car.along = at.along;
   car.onRoad = Math.abs(at.offset) <= track.halfWidth;
+  // Where the road climbs or dips, the car goes with it.
+  const exact = at.index + at.along / track.spacing;
+  car.y = track.heightAt(exact, at.offset);
+  car.slope = (track.heightAt(exact + 1, at.offset) - track.heightAt(exact - 1, at.offset)) / (2 * track.spacing);
 }
 
 /**
@@ -301,10 +325,22 @@ export function autopilot(car, rival, track, limits, others, time = 0) {
       lane = other.offset > 0 ? other.offset - 3.4 : other.offset + 3.4;
     }
   }
-  const room = track.halfWidth - 1.6;
+  const reach = (9 + Math.abs(car.speed) * 0.5) / track.spacing;
+
+  // An island ahead: pick a side in good time and stay on it. A car already
+  // alongside keeps to the side it is on; otherwise it goes the way its lane leans.
+  let island = 0;
+  for (const ahead of [0, reach, reach * 2, reach * 3.5]) island = Math.max(island, track.dividerAt(car.index + ahead));
+  if (island > 0) {
+    const alongside = track.dividerAt(car.index) > 0.4;
+    const side = alongside ? Math.sign(car.offset) || 1 : Math.sign(rival.lane) || Math.sign(car.offset) || 1;
+    lane = side * Math.max(Math.abs(lane), island + 3.4);
+  }
+
+  // Keep on the tarmac, which is narrower on the inside of a tight bend.
+  const room = Math.min(track.halfWidth, track.edgeAt(car.index + Math.round(reach), Math.sign(lane) || 1)) - 1.6;
   lane = clamp(lane, -room, room);
 
-  const reach = (9 + Math.abs(car.speed) * 0.5) / track.spacing;
   const aim = track.pointAt(car.index + car.along / track.spacing + reach, lane);
   const wanted = Math.atan2(aim.x - car.x, aim.z - car.z);
   const steer = clamp(-wrapAngle(wanted - car.heading) * 2.4, -1, 1);

@@ -347,7 +347,8 @@ function createStreet(site, track, random, bang) {
       const at = track.pointAt(zombie.index, zombie.across);
       zombie.x = at.x;
       zombie.z = at.z;
-      zombie.heading = at.heading + (zombie.direction * Math.PI) / 2;
+      // Facing the way it is shambling (+1 is toward the right of the road).
+      zombie.heading = at.heading - (zombie.direction * Math.PI) / 2;
 
       for (const racer of racers) {
         const car = racer.car;

@@ -3,6 +3,7 @@ import { createCombat } from './combat.js';
 import { createEvents } from './events.js';
 import { createFeature } from './features.js';
 import { createHazard } from './hazards.js';
+import { SECTORS } from './track.js';
 
 // The rules of a race, with no rendering: grid, countdown, laps, positions
 // and the finish. It can be run headless (scripts/simulate-race.mjs does),
@@ -14,8 +15,7 @@ import { createHazard } from './hazards.js';
 const STEP = 1 / 60;
 const COUNTDOWN = 3;
 
-/** Each lap is split into this many sectors, with a checkpoint between each. */
-export const SECTORS = 4;
+export { SECTORS };
 
 // Rivals have clumsy moments: every so often one takes its foot off and
 // drifts off line for a second or so. Seconds between them, and how long.
@@ -68,7 +68,8 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
   // Things going off, for the scene to draw: [{ x, z, kind, at }].
   const bangs = [];
   const bang = (x, z, kind) => {
-    bangs.push({ x, z, kind, at: session.time });
+    const where = track.project(x, z);
+    bangs.push({ x, z, y: track.heightAt(where.index, where.offset), kind, at: session.time });
     if (bangs.length > 12) bangs.shift();
   };
 
@@ -192,7 +193,9 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
     racer.progress = (racer.lap * n + now) * track.spacing + racer.car.along;
 
     // Checkpoints: note when a racer moves on into the next sector.
-    const sector = Math.min(SECTORS - 1, Math.floor((now / n) * SECTORS));
+    // Which sector it is in: how many checkpoints it is past this lap.
+    let sector = 0;
+    for (const checkpoint of track.checkpoints) if (now >= checkpoint) sector++;
     if (sector !== racer.sector) {
       const forward = sector === (racer.sector + 1) % SECTORS;
       racer.sector = sector;

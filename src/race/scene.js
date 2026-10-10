@@ -131,6 +131,9 @@ export function createRaceScene(renderer, view) {
 
   const camera = { eye: [0, 5, -10], target: [0, 1, 0], fov: 1, near: 0.5, far: 520 };
   let cameraHeading = 0;
+  let cameraY = 0; // height of the road the camera is following
+  let aheadY = 0; // and of the road it is looking toward
+  let shade = 0; // 0 in the open, 1 in a tunnel
 
   /**
    * Starts a race.
@@ -199,7 +202,9 @@ export function createRaceScene(renderer, view) {
     session.racers.forEach((racer, i) => {
       const { node, animate } = vehicles[i];
       const car = racer.car;
-      node.position = [car.x, car.lift, car.z];
+      // On the road at whatever height it is here, nose up or down with the slope.
+      node.position = [car.x, car.y + car.lift, car.z];
+      node.rotation[0] = car.flight ? 0 : -Math.atan(car.slope);
       node.rotation[1] = car.heading + car.twirl;
       animate(car, dt);
       node.updateWorld();
@@ -213,7 +218,7 @@ export function createRaceScene(renderer, view) {
 
     // Frozen cars sit in a block of cold light.
     for (const racer of session.racers) {
-      if (racer.car.effects.frozen > 0) glowPool.take(haloGeometry('frost'), racer.car.x, 1.3, racer.car.z, 3.4);
+      if (racer.car.effects.frozen > 0) glowPool.take(haloGeometry('frost'), racer.car.x, racer.car.y + 1.3, racer.car.z, 3.4);
     }
 
     // Checkpoints light up once the player is through them, and go out
@@ -230,25 +235,30 @@ export function createRaceScene(renderer, view) {
     props.forEach(({ item, node, ring, halo }, i) => {
       if (!item.active) return;
       const [, radius, height, squash] = ITEM_HALOS[item.kind];
-      glowPool.take(halo, item.x, height, item.z, [radius * pulse, radius * squash * pulse, radius * pulse]);
-      paintPool.take(ring, item.x, 0, item.z, pulse);
+      const y = item.y;
+      glowPool.take(halo, item.x, y + height, item.z, [radius * pulse, radius * squash * pulse, radius * pulse]);
+      // What lies on the road is paint where the road is flat ground, and
+      // a thin solid just above the surface where the road is built.
+      const flat = item.level ? paintPool : solidPool;
+      const rest = item.level ? 0 : y + 0.065;
+      flat.take(ring, item.x, rest, item.z, pulse);
 
       if (item.kind === 'oil') {
-        paintPool.take(oilGeometry(), item.x, 0, item.z, 1, item.heading);
+        flat.take(oilGeometry(), item.x, rest, item.z, 1, item.heading);
       } else if (FLOATS.has(item.kind)) {
-        node.position = [item.x, 1.7 + 0.2 * Math.sin(time * 3 + i), item.z];
+        node.position = [item.x, y + 1.7 + 0.2 * Math.sin(time * 3 + i), item.z];
         node.rotation[1] = time * 2.6 + i;
       } else if (item.kind === 'slow') {
         // Crossing the road, at a snail's pace.
-        node.position = [item.x, 0, item.z];
+        node.position = [item.x, y, item.z];
         node.rotation[1] = item.heading + Math.PI / 2 + 0.2 * Math.sin(time * 1.4 + i);
         node.scale = [1.2, 1.2, 1.2];
       } else if (item.kind === 'bomb') {
         const throb = 1 + 0.07 * Math.sin(time * 9 + i);
-        node.position = [item.x, 0, item.z];
+        node.position = [item.x, y, item.z];
         node.scale = [throb, throb, throb];
       } else {
-        node.position = [item.x, 0, item.z];
+        node.position = [item.x, y, item.z];
         node.rotation[1] = item.heading;
       }
       node?.updateWorld();
@@ -259,17 +269,19 @@ export function createRaceScene(renderer, view) {
 
     // Shots in flight.
     for (const shot of session.combat.shots) {
-      solidPool.take(shotGeometry(shot.kind), shot.x, 1.3, shot.z, 1, shot.heading);
-      glowPool.take(haloGeometry('fire'), shot.x, 1.3, shot.z, 1.6);
+      const y = world.track.heightAt(shot.index, shot.offset) + 1.3;
+      solidPool.take(shotGeometry(shot.kind), shot.x, y, shot.z, 1, shot.heading);
+      glowPool.take(haloGeometry('fire'), shot.x, y, shot.z, 1.6);
     }
 
     // Things going off: a ball that swells and is gone.
     for (const bang of session.bangs) {
       const age = (session.time - bang.at) / BANG_TIME;
       if (age < 0 || age >= 1) continue;
-      solidPool.take(bangGeometry(bang.kind), bang.x, 1.6, bang.z, 0.7 + age * 1.7);
+      const y = (bang.y ?? 0) + 1.6;
+      solidPool.take(bangGeometry(bang.kind), bang.x, y, bang.z, 0.7 + age * 1.7);
       const halo = { spark: 'spark', blast: 'fire', slime: 'slime' }[bang.kind];
-      if (halo) glowPool.take(haloGeometry(halo), bang.x, 1.6, bang.z, 3 + age * 3);
+      if (halo) glowPool.take(haloGeometry(halo), bang.x, y, bang.z, 3 + age * 3);
     }
 
     placeHazard();
@@ -434,7 +446,8 @@ export function createRaceScene(renderer, view) {
   function placeAir(dt) {
     motePool.reset();
     const air = world.theme.air;
-    if (!air) return;
+    // Nothing falls or drifts inside a tunnel.
+    if (!air || shade > 0.5) return;
 
     // A snowstorm drives it sideways, hard.
     const storm = session.hazard?.kind === 'storm' ? session.hazard : null;
@@ -466,16 +479,32 @@ export function createRaceScene(renderer, view) {
     }
   }
 
-  /** Chase camera: swings round behind the car a beat after it turns, and rises with it when it leaves the ground. */
+  /**
+   * Chase camera: swings round behind the car a beat after it turns, rises
+   * with it when it leaves the ground, and follows the road up and down.
+   */
   function chase(dt, snap = false) {
-    const car = (session.player || session.racers[0]).car;
-    cameraHeading += wrapAngle(car.heading - cameraHeading) * (snap ? 1 : 1 - Math.exp(-dt * 5));
+    const subject = session.player || session.racers[0];
+    const car = subject.car;
+    const track = world.track;
+    const ease = snap ? 1 : 1 - Math.exp(-dt * 5);
+    cameraHeading += wrapAngle(car.heading - cameraHeading) * ease;
     const speed = Math.min(1.5, Math.abs(car.speed) / car.maxSpeed);
     const fx = Math.sin(cameraHeading);
     const fz = Math.cos(cameraHeading);
     const back = 7.6 + speed * 1.6;
-    camera.eye = [car.x - fx * back, 3.5 + car.lift * 0.5, car.z - fz * back];
-    camera.target = [car.x + fx * 5, 1.4 + car.lift * 0.6, car.z + fz * 5];
+
+    // Height: that of the road under the car, and of the road a little way
+    // ahead for what the camera looks at, both eased so that the view glides.
+    const here = car.index + car.along / track.spacing;
+    const lift = snap ? 1 : 1 - Math.exp(-dt * 8);
+    cameraY += (car.y - cameraY) * lift;
+    aheadY += (track.heightAt(here + 5 / track.spacing, car.offset) - aheadY) * lift;
+    camera.eye = [car.x - fx * back, cameraY + 3.5 + car.lift * 0.5, car.z - fz * back];
+    camera.target = [car.x + fx * 5, aheadY + 1.4 + car.lift * 0.6, car.z + fz * 5];
+
+    // In a tunnel the daylight goes.
+    shade += ((track.roofAt(car.index, car.offset) ? 1 : 0) - shade) * (snap ? 1 : 1 - Math.exp(-dt * 4));
 
     // Keep a useful width of view on tall phone screens, and open the lens
     // up a little with speed.
@@ -495,7 +524,8 @@ export function createRaceScene(renderer, view) {
   function draw() {
     const theme = world.theme;
     const cars = vehicles.map((vehicle) => vehicle.node);
-    const standing = props.filter((entry) => entry.item.active && entry.node).map((entry) => entry.node);
+    const items = props.filter((entry) => entry.item.active && entry.node);
+    const standing = items.map((entry) => entry.node);
 
     // A snowstorm closes the view in; a strike nearby lights everything up.
     const hazard = session.hazard;
@@ -510,18 +540,33 @@ export function createRaceScene(renderer, view) {
     }
     const mist = theme.mist;
 
+    // Under the ground there is only what the lamps give.
+    let lighting = theme.lighting;
+    if (shade > 0.01) {
+      const dim = (colour, by) => colour.map((value) => value * (1 - by * shade));
+      lighting = { sun: dim(theme.lighting.sun, 0.62), sky: dim(theme.lighting.sky, 0.45), bounce: dim(theme.lighting.bounce, 0.3) };
+    }
+
     renderer.render({
       camera,
       light: world.light,
-      lighting: theme.lighting,
+      lighting,
       fog: { color: world.fogColor, density: theme.fog.density * (1 + 1.5 * storm) },
-      mist: mist ? { strength: mist.strength, scale: mist.scale, offset: mistDrift } : null,
+      mist: mist ? { strength: mist.strength * (1 - shade), scale: mist.scale, offset: mistDrift } : null,
       grain: theme.grain ?? 0,
       pulse: (theme.pulse ? theme.pulse(time) : 1) * flash,
       sky: world.sky,
       ground,
+      openings: world.openings,
+      decks: world.decks ? [world.decks] : null,
       solids: [world.scenery, ...cars, ...standing, ...castPool.active, ...solidPool.active, ...motePool.active],
-      casters: [...cars, ...standing, ...castPool.active, world.scenery],
+      // Shadows fall on the road each thing is on, whatever height that is.
+      casters: [
+        ...session.racers.map((racer, i) => ({ node: cars[i], height: racer.car.y })),
+        ...items.map((entry) => ({ node: entry.node, height: entry.item.y })),
+        ...castPool.active,
+        world.scenery,
+      ],
       shadow: { strength: theme.shadow },
       glows: glowPool.active,
     });
@@ -553,7 +598,7 @@ export function createRaceScene(renderer, view) {
     session.racers.forEach((racer, i) => {
       const car = racer.car;
       const x = car.x;
-      const y = car.lift + vehicles[i].height + 0.45;
+      const y = car.y + car.lift + vehicles[i].height + 0.45;
       const z = car.z;
       const w = m[3] * x + m[7] * y + m[11] * z + m[15];
       const plate = (out[i] ??= { x: 0, y: 0, scale: 1, visible: false });
@@ -587,11 +632,13 @@ export function createRaceScene(renderer, view) {
     // Put the cars on the road coming through, and let things happen for a
     // second or two so the place is in full swing.
     session.phase = 'racing';
+    // (`carsAt` puts them at a sample of the track instead of at the landmark.)
+    const lead = shot.carsAt ?? site.index + shot.cars / track.spacing;
     session.racers.forEach((racer, i) => {
-      const at = track.pointAt(site.index + shot.cars / track.spacing - i * 3.2, [-7, 5, -1, 9][i % 4]);
+      const at = track.pointAt(lead - i * 3.2, [-7, 5, -1, 9][i % 4]);
       const car = racer.car;
       Object.assign(car, { x: at.x, z: at.z, heading: at.heading, speed: 22, vx: Math.sin(at.heading) * 22, vz: Math.cos(at.heading) * 22 });
-      car.index = track.wrap(Math.round(site.index + shot.cars / track.spacing - i * 3.2));
+      car.index = track.wrap(Math.round(lead - i * 3.2));
       locate(car, track);
       racer.lap = 0;
     });

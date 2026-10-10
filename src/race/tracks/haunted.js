@@ -145,6 +145,11 @@ export const haunted = {
     ],
     halfWidth: 15.75,
     shoulder: 5,
+    // Where the road leaves the flat: see race/track.js.
+    sections: [
+      { kind: 'split', around: 0.13, metres: 100 },
+      { kind: 'under', around: 0.355, metres: 124 },
+    ],
   },
   surface: { grip: 8, offroad: 0.45 },
   hazard: 'werewolf', // see race/hazards.js
@@ -185,6 +190,19 @@ export const haunted = {
     chequerLight: material('#f1e9ff'),
   },
   preview: { ground: '#2b2a3a', road: '#4a4560', accent: '#ff8a1f' },
+
+  // Viaducts, cuttings and islands: old stone, candle-lit, with lanterns
+  // down the middle.
+  works: {
+    wall,
+    wallDark,
+    trim: material('#ff8a1f', { spec: 0.2 }),
+    roof: material('#1c1a26', { spec: 0.05 }),
+    lamp: candle,
+    island: material('#30283a', { spec: 0 }),
+    arch: roof,
+  },
+  median: () => lantern(),
 
   paintGround({ paint, random, track }) {
     const tones = [material('#33304a'), material('#262437'), material('#2f3540'), material('#3a3350')];

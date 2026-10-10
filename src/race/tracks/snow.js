@@ -139,6 +139,11 @@ export const snowy = {
     ],
     halfWidth: 15.75,
     shoulder: 5,
+    // Where the road leaves the flat: see race/track.js.
+    sections: [
+      { kind: 'fork', around: 0.14, metres: 150 },
+      { kind: 'split', around: 0.6, metres: 100 },
+    ],
   },
   surface: { grip: 5, offroad: 0.55, slide: 0.75 },
   hazard: 'storm', // see race/hazards.js
@@ -175,6 +180,19 @@ export const snowy = {
     chequerLight: material('#ffffff'),
   },
   preview: { ground: '#e6f0fa', road: '#627184', accent: '#2f7df2' },
+
+  // Viaducts, cuttings and islands: blue ice and grey rock, with pines
+  // down the middle.
+  works: {
+    wall: material('#8fa9c4', { spec: 0.3, shine: 30 }),
+    wallDark: material('#63728f', { spec: 0.05 }),
+    trim: blue,
+    roof: material('#3d4860', { spec: 0.05 }),
+    lamp: material('#c9f1ff', { glow: 1 }),
+    island: material('#f1f6fc', { spec: 0 }),
+    arch: material('#4c5a78', { spec: 0 }),
+  },
+  median: () => pineTree(),
 
   paintGround({ paint, random, track }) {
     const tones = [material('#e2edf8'), material('#fbfdff'), material('#d5e6f6')];

@@ -144,6 +144,11 @@ export const swamp = {
     ],
     halfWidth: 15.75,
     shoulder: 5,
+    // Where the road leaves the flat: see race/track.js.
+    sections: [
+      { kind: 'split', around: 0.125, metres: 100 },
+      { kind: 'over', around: 0.86, metres: 100 },
+    ],
   },
   surface: { grip: 8, offroad: 0.42 },
   hazard: 'lightning', // see race/hazards.js
@@ -185,6 +190,19 @@ export const swamp = {
     chequerLight: material('#e8f6f2'),
   },
   preview: { ground: '#1f3f33', road: '#4a3f52', accent: '#66f4ff' },
+
+  // Viaducts, cuttings and islands: iron, edged with live rail, and a row
+  // of mushrooms down the middle.
+  works: {
+    wall: iron,
+    wallDark: ironDark,
+    trim: volt,
+    roof: material('#1d1f2b', { spec: 0.05 }),
+    lamp: lime,
+    island: material('#2f5a36', { spec: 0 }),
+    arch: material('#1d1f2b', { spec: 0 }),
+  },
+  median: () => mushroom(pink),
 
   paintGround({ paint, random, track }) {
     const moss = [material('#2f5a36'), material('#21402b'), material('#35633a')];

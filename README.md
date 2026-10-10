@@ -16,8 +16,8 @@ things that hold them together: a driver, coins, a shop and tracks to open.
 - **Race:** a two-lap circuit race against three computer rivals in random
   contraptions, at one of three difficulties, on one of five tracks. Random
   events on the road (pickups, hazards, trampolines and strips), a dangerous
-  landmark on each track, and working weapons shake things up. Two more race
-  types are planned.
+  landmark on each track, bridges, tunnels and two-lane stretches, and
+  working weapons shake things up. Two more race types are planned.
 
 | Category | Parts (price in coins) |
 | --- | --- |
@@ -111,8 +111,8 @@ knowing before modelling anything new:
   proud of it. Four walls of windows cost 12 triangles a storey.
 - **Stripes are separate pieces of colour.** A barrier board is six small
   slabs in two colours, not a texture.
-- **Paint is nearly free.** The ground is flat layers drawn in order with no
-  depth test, so tyre marks, cracks, ragged verges, planks, flagstones,
+- **Paint is nearly free.** The ground is flat layers drawn in order, each
+  over the last, so tyre marks, cracks, ragged verges, planks, flagstones,
   leaves and strands of grass are all paint (`race/world.js`).
 - **Scenery comes in groups.** Each track places a dozen little scenes
   round the lap (a ruined colonnade, an oasis, a roadblock, a pumpkin patch)
@@ -161,7 +161,8 @@ feeling slippery however hard the steering is held over.
 Each lap is split into four sectors. A gate and a line across the road mark
 the end of each of the first three, and light up green as the player goes
 through. A small map at the top right shows the circuit, the sectors done
-this lap, the landmark in red, and a dot for every racer.
+this lap, the landmark in red, bridges, tunnels and two-lane stretches in
+light blue, and a dot for every racer.
 
 Every car has a nameplate over it with its driver's face and name. Coins
 picked up so far are shown under the place number.
@@ -244,9 +245,43 @@ gives warning, so it can be dodged.
 The pyramid needs a straight stretch of road; the others follow the road
 round whatever bend it is on. Landmarks are placed clear of the checkpoints.
 
+### Two lanes, bridges and tunnels
+
+Every track has two stretches where the road stops being one flat ribbon:
+
+| Kind | What it is |
+| --- | --- |
+| `split` | The road divides round an island for about 100 m: two lanes, each wide enough to overtake in, with a barrier and a row of something (palms, pines, lanterns) between them. |
+| `over` | The whole road climbs onto a viaduct 6 m up, with arches underneath and a parapet. |
+| `under` | The whole road dives 7 m into a cutting and then a tunnel, lit by lamps along the walls. |
+| `fork` | Both at once: the left lane goes over, the right lane goes under, and they meet again at the far end. |
+
+| Track | Stretches, in lap order |
+| --- | --- |
+| Pyramid Desert | Two lanes round a row of palms; a fork |
+| Electric Swamp | Two lanes round a bank of mushrooms; a viaduct |
+| Snowy Mountains | A fork; two lanes round a line of pines |
+| Haunted Hollow | Two lanes round a row of lanterns; a tunnel |
+| Zombie City | A flyover; a fork |
+
+A layout lists them as `sections: [{ kind, around, metres }]`: the kind, where
+on the lap its middle is (0 to 1) and how long it is. `src/race/track.js`
+turns that into a height for each half of the road and a width for the
+island at every point (`heightAt`, `dividerAt`, `roofAt`), with 38 m ramps
+and a 12 m nose where an island opens out. `src/race/roadworks.js` builds
+what is seen: the road surface, viaduct walls, retaining walls, ceilings,
+tunnel mouths and the island's barrier, in colours the theme chooses
+(`works`). What stands along an island is the theme's `median`.
+
+The race is still decided on the flat: a car is a point on the map, and its
+height is looked up from where it is. The island is solid and cars glance
+off it. Rivals pick a lane before they reach one. Bolt rows, strips and
+trampolines are kept off these stretches, and nothing is left on a slope.
+In a tunnel the camera stays under the roof and the light dims.
+
 ### Tracks
 
-Tracks are flat and defined by a dozen control points each
+Tracks are defined by a dozen control points each, plus the stretches above
 (`src/race/tracks/`). A theme also sets its sky, fog, lighting, road colours,
 scenery, what is in the air and where its picture is taken from. Adding a
 track means adding one file there and listing it in `tracks/index.js`; a new
@@ -268,6 +303,20 @@ sloppy one. It reports wins, places and times, and fails if any car does not
 finish. Run it after changing the driving model, the rivals, the events, a
 landmark or a layout.
 
+```sh
+npm run check:tracks            # every track
+npm run check:tracks -- snow    # one track
+```
+
+looks for scenery standing where cars drive. It builds each track as the
+game does and tests every triangle of scenery: anything over the tarmac at a
+height a car or the camera could reach fails, and anything over the verge is
+listed (gate posts and the landmarks' own furniture are meant to be there;
+anything else is a mistake). It also checks that bridges, tunnels and
+two-lane stretches are clear of the start, the checkpoints, the landmark and
+each other. Run it after adding scenery, moving a landmark or changing a
+layout.
+
 ## 3D engine
 
 Rendering is a small WebGL renderer written for this project (`src/engine/`):
@@ -277,10 +326,22 @@ shadow, plus see-through halos for glowing things. It has no dependencies.
 It is fast because of how little it draws. Anything static is merged into a
 single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
 scenery is one or two draw calls, and a car is two to six however elaborate
-the build. A track is 40 to 60 thousand triangles, ground and scenery
-together. A race is 170 to 270 draw calls, most of them the pickups on the
-road with their rings, halos and shadows. Two built tracks are kept in
+the build. A track is 35 to 60 thousand triangles, ground, scenery and built
+road together. A race is 170 to 270 draw calls, most of them the pickups on
+the road with their rings, halos and shadows. Two built tracks are kept in
 memory at a time.
+
+A frame is drawn in this order (`engine/renderer.js`):
+
+1. The sky.
+2. Openings: where the road dives below ground, the shape of the hole is
+   marked in the stencil buffer and nothing else.
+3. The ground: flat layers of paint, each drawn over the last, everywhere
+   except the openings. The ground records its depth, so anything that dips
+   below it (the foot of a cliff sunk into the snow, say) is hidden by it.
+4. Built road: viaducts, cuttings and tunnels, as ordinary solid shapes.
+5. Shadows, flattened onto the ground or onto the road a car is on.
+6. Everything solid, then everything that glows.
 
 ### Atmosphere
 
@@ -347,7 +408,8 @@ src/race/setpieces.js   what the landmarks look like
 src/race/combat.js      weapons: shots, always-on melee, reloading
 src/race/props.js       what events, creatures and shots look like
 src/race/dressing.js    trackside furniture shared by every track
-src/race/track.js       the centre line: sampling, projection, curvature
+src/race/track.js       the centre line: sampling, projection, curvature, heights, islands
+src/race/roadworks.js   viaducts, cuttings, tunnels and islands, built from a track
 src/race/world.js       builds ground, scenery and sky for a track
 src/race/tracks/        the five track themes
 src/race/scene.js       3D side of a race, the chase camera, track pictures
@@ -359,7 +421,7 @@ src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking
 src/loop.js             frame loop, paused while the tab is hidden
 icons/                  placeholder icons
-scripts/                dev server, part check, race simulation, rename script
+scripts/                dev server, part check, track check, race simulation, rename script
 ```
 
 ## Renaming the game

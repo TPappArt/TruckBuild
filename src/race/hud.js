@@ -183,7 +183,9 @@ export function createHud({ fx }) {
       for (let i = from; i <= to; i++) context.lineTo(...mapPoint(track.xs[track.wrap(i)], track.zs[track.wrap(i)]));
       context.stroke();
     };
-    mapOutline = { density, trace, sector: track.count / SECTORS };
+    // Where each sector ends: the checkpoints, then the start line.
+    const ends = [0, ...track.checkpoints, track.count];
+    mapOutline = { density, trace, ends };
 
     // The whole circuit, with a tick at the start line and at each checkpoint.
     const still = document.createElement('canvas');
@@ -195,6 +197,9 @@ export function createHud({ fx }) {
     context.strokeStyle = 'rgb(255 255 255 / 45%)';
     context.lineWidth = 4 * density;
     trace(context, 0, track.count);
+    // Where the road climbs, dives or divides, in blue.
+    context.strokeStyle = '#7fd0ff';
+    for (const section of track.sections) trace(context, section.from, section.from + section.length);
     // The landmark, where the trouble is, in red.
     if (site) {
       context.strokeStyle = '#ff6a5c';
@@ -202,7 +207,7 @@ export function createHud({ fx }) {
     }
     context.fillStyle = '#ffffff';
     for (let k = 0; k < SECTORS; k++) {
-      const [x, y] = mapPoint(track.xs[Math.round(k * mapOutline.sector) % track.count], track.zs[Math.round(k * mapOutline.sector) % track.count]);
+      const [x, y] = mapPoint(track.xs[ends[k]], track.zs[ends[k]]);
       context.beginPath();
       context.arc(x, y, (k === 0 ? 3.4 : 2.2) * density, 0, Math.PI * 2);
       context.fill();
@@ -212,7 +217,7 @@ export function createHud({ fx }) {
 
   function drawMap(session) {
     if (!mapOutline) return;
-    const { density, trace, sector, still } = mapOutline;
+    const { density, trace, ends, still } = mapOutline;
     const player = session.player;
     mapContext.clearRect(0, 0, map.width, map.height);
     mapContext.drawImage(still, 0, 0);
@@ -223,7 +228,7 @@ export function createHud({ fx }) {
     mapContext.strokeStyle = '#6dff97';
     mapContext.lineWidth = 4 * density;
     const done = player.finished ? SECTORS : player.lap < 0 ? 0 : player.sector;
-    if (done > 0) trace(mapContext, 0, Math.round(done * sector));
+    if (done > 0) trace(mapContext, 0, ends[done]);
 
     // Rivals first, so the player's dot is always on top.
     const dot = (racer, radius, ring) => {

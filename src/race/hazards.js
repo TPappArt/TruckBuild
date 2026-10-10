@@ -261,7 +261,8 @@ function createWerewolf(track, random, bang, zone) {
       const at = track.pointAt(wolf.index, wolf.across);
       wolf.x = at.x;
       wolf.z = at.z;
-      wolf.heading = at.heading - (wolf.from * Math.PI) / 2;
+      // Nose first: it runs from the side it came from toward the other.
+      wolf.heading = at.heading + (wolf.from * Math.PI) / 2;
       if (!wolf.running) continue;
       for (const racer of racers) {
         const car = racer.car;

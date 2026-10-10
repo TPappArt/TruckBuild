@@ -137,6 +137,11 @@ export const desert = {
     ],
     halfWidth: 15.75,
     shoulder: 5,
+    // Where the road leaves the flat: see race/track.js.
+    sections: [
+      { kind: 'split', around: 0.125, metres: 100 },
+      { kind: 'fork', around: 0.631, metres: 150 },
+    ],
   },
   surface: { grip: 9, offroad: 0.5 },
   hazard: 'mummy', // see race/hazards.js
@@ -175,6 +180,21 @@ export const desert = {
     chequerLight: material('#f6f1e4'),
   },
   preview: { ground: '#e8c27a', road: '#70605a', accent: '#e4463a' },
+
+  // Viaducts, cuttings and islands: sandstone, with torches in the tunnels
+  // and palms down the middle.
+  works: {
+    wall: material('#cfa35f', { spec: 0.05 }),
+    wallDark: stoneDark,
+    trim: gold,
+    roof: material('#6f5536', { spec: 0.05 }),
+    lamp: material('#ffb347', { glow: 1 }),
+    island: material('#e8c27a', { spec: 0 }),
+    arch: material('#7a5d3a', { spec: 0 }),
+  },
+  // Small palms: a full-size one would hang its fronds over the lanes.
+  median: () => palm(),
+  medianScale: 0.7,
 
   paintGround({ paint, random, track }) {
     const tones = [material('#f1d08d'), material('#dfb46c'), material('#ecc884')];
