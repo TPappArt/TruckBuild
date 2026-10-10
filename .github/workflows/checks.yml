@@ -1,5 +1,6 @@
 # Runs the game's own checks on every push: the triangle budget, scenery
-# standing on the road, and seeded races on every track.
+# standing on the road, contrast, seeded races on every track, and races
+# with a driver doing anything at all.
 name: Checks
 
 on:
@@ -15,10 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm run check
       - run: npm run check:tracks
+      - run: npm run check:contrast
       - run: npm run simulate
+      - run: npm run fuzz

@@ -227,7 +227,7 @@ func openWindow() error {
 			"--no-first-run",
 			"--no-default-browser-check",
 			"--disable-background-mode",
-			"--window-size=1280,760",
+			"--start-maximized",
 		)
 		if err := cmd.Start(); err == nil {
 			go cmd.Wait()
