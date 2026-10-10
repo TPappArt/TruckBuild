@@ -21,9 +21,19 @@ const SHOT_DRIFT = 12; // sideways homing, m/s
 const MELEE_WIDTH = 1.8; // metres either side of the centre line of the car
 const MELEE_REST = 1.5; // seconds before a melee weapon can hit again
 
-/** `bang(x, z, kind)` is called when something is hit, for the scene to draw. */
-export function createCombat(track, random, bang = () => {}) {
+/**
+ * `bang(x, z, kind)` is called when something is hit, for the scene to draw.
+ * `trigger` is how keen rivals are to shoot: the chance per second that one
+ * with a car in its sights pulls the trigger.
+ */
+export function createCombat(track, random, bang = () => {}, trigger = 0.2) {
   const shots = [];
+
+  /** Every hit a racer lands is counted, for the coins it earns. */
+  function scored(racer, time) {
+    racer.lastEvent = { kind: 'scored', at: time };
+    racer.hits = (racer.hits ?? 0) + 1;
+  }
 
   function fire(racer) {
     const car = racer.car;
@@ -74,7 +84,7 @@ export function createCombat(track, random, bang = () => {}) {
           // Rivals are slow on the trigger and only shoot at something
           // roughly in front of them.
           const target = carAhead(racer, car.index, 45, racers);
-          if (target && Math.abs(target.car.offset - car.offset) < 5 && random() < dt * 0.2) {
+          if (target && Math.abs(target.car.offset - car.offset) < 5 && random() < dt * trigger) {
             fire(racer);
             racer.reload = RELOAD + random() * 12;
           }
@@ -93,7 +103,7 @@ export function createCombat(track, random, bang = () => {}) {
           if (forward < 0.6 || forward > attack.reach || Math.abs(sideways) > MELEE_WIDTH) continue;
           if (!knock(other.car)) continue;
           other.lastEvent = { kind: 'hit', at: time };
-          racer.lastEvent = { kind: 'scored', at: time };
+          scored(racer, time);
           racer.rest = MELEE_REST;
           bang(other.car.x, other.car.z, 'blast');
           break;
@@ -121,7 +131,7 @@ export function createCombat(track, random, bang = () => {}) {
         bang(shot.x, shot.z, 'blast');
         if (knock(racer.car)) {
           racer.lastEvent = { kind: 'hit', at: time };
-          shot.owner.lastEvent = { kind: 'scored', at: time };
+          scored(shot.owner, time);
         }
         break;
       }

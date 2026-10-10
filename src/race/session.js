@@ -22,15 +22,20 @@ export const SECTORS = 4;
 const LAPSE_EVERY = [5, 11];
 const LAPSE_LASTS = [0.7, 1.5];
 
+// How the rivals treat the player when no difficulty is given: as on Easy.
+const KIND = { wait: 80, floor: 0.25, catchUp: 1.05, trigger: 0.2 };
+
 /**
  * drivers: [{ name, isPlayer, lane, pace, weave, clumsy, attack }] in grid order (first = pole).
  * surface: { grip, offroad } from the track theme.
  * hazard:  the track's own hazard, by name (see hazards.js), if it has one.
- * feature: the track's set piece, by name (see features.js), if it has one.
+ * feature: the track's landmark, by name (see features.js), if it has one.
+ * rules:   how the rivals behave toward the player (see grid.js DIFFICULTIES):
+ *          { wait, floor, catchUp, trigger }.
  * random:  source of randomness; pass a seeded one for repeatable races.
  * events:  false to race on an empty road with no hazard.
  */
-export function createSession({ track, surface, hazard, feature, laps = 3, drivers, random = Math.random, events = true }) {
+export function createSession({ track, surface, hazard, feature, laps = 3, drivers, rules = KIND, random = Math.random, events = true }) {
   const limits = speedLimits(track, surface);
   const between = ([low, high]) => low + (high - low) * random();
 
@@ -48,6 +53,8 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
       place: slot + 1,
       sector: SECTORS - 1, // which quarter of the lap it is in: 0 to SECTORS - 1
       lastEvent: null, // { kind, at } of the latest track event to hit this racer
+      hits: 0, // rivals knocked with a weapon
+      bags: 0, // coin bags collected
 
       // The rival's state of mind, for the computer driver.
       phase: random() * 6,
@@ -65,7 +72,7 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
     if (bangs.length > 12) bangs.shift();
   };
 
-  // The set piece comes first: everything else keeps clear of it.
+  // The landmark comes first: everything else keeps clear of it.
   const setPiece = events && feature ? createFeature(feature, track, random, bang) : null;
   const keepOut = setPiece ? [{ from: setPiece.site.from - 4, to: setPiece.site.to + 4 }] : [];
 
@@ -77,8 +84,8 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
     bangs,
     feature: setPiece,
     events: events ? createEvents(track, random, bang, keepOut) : null,
-    hazard: events && hazard ? createHazard(hazard, track, random, bang) : null,
-    combat: createCombat(track, random, bang),
+    hazard: setPiece && hazard ? createHazard(hazard, track, random, bang, setPiece.site.zone) : null,
+    combat: createCombat(track, random, bang, rules.trigger),
     phase: 'countdown', // 'countdown' | 'racing' | 'finished' (the player is home)
     countdown: COUNTDOWN,
     time: 0,
@@ -112,7 +119,9 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
       if (car.flight) {
         stepFlight(car, dt, track);
       } else {
-        const human = racer.isPlayer && !racer.finished;
+        // `auto` puts the computer in the player's seat (simulations, and the
+        // pictures of each track).
+        const human = racer.isPlayer && !racer.finished && !racer.auto;
         stepCar(car, human ? playerInput : drive(racer), dt, track, surface);
       }
       countLap(racer, previous);
@@ -155,11 +164,12 @@ export function createSession({ track, surface, hazard, feature, laps = 3, drive
 
     // Rivals wait for a player who has fallen behind, and find a little
     // more speed when they are the ones trailing, so the pack stays
-    // together. They slow down far more readily than they speed up.
+    // together. They slow down far more readily than they speed up; how
+    // readily depends on the difficulty.
     let pace = racer.pace ?? 0.8;
     if (player && !racer.isPlayer) {
       const lead = racer.progress - player.progress; // metres ahead of the player
-      pace *= lead > 0 ? Math.max(0.25, 1 - lead / 80) : Math.min(1.05, 1 - lead / 3000);
+      pace *= lead > 0 ? Math.max(rules.floor, 1 - lead / rules.wait) : Math.min(rules.catchUp, 1 - lead / 3000);
     }
 
     return autopilot(

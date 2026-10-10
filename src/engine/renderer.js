@@ -6,8 +6,14 @@ import { determinant3, identity, lookAt, multiply, normalMatrix, perspective } f
 //
 // It is fast because of what it does not do. A whole track, or a whole
 // vehicle, is a single merged mesh with colour stored per vertex (see
-// bake.js), so a race is a few dozen draw calls. There are no textures and
-// no shadow maps. WebGL 1 is used on purpose for the widest device support.
+// bake.js), so a race is a few dozen draw calls. There are no shadow maps
+// and no material textures. WebGL 1 is used on purpose for the widest
+// device support.
+//
+// The one texture is a 64 x 64 tile of noise, made here at start-up. It is
+// looked up by position on the ground, never by a mesh's own coordinates,
+// so nothing needs unwrapping. It does two cheap jobs: it breaks up flat
+// ground with a little grain, and it puts drifting banks of mist in the fog.
 
 const VERTEX = `
 attribute vec3 aPosition;
@@ -18,70 +24,96 @@ uniform mat4 uViewProj;
 uniform mat4 uModel;
 uniform mat3 uNormal;
 uniform vec3 uEye;
-uniform float uFogDensity;
 varying vec3 vNormal;
 varying vec3 vView;
 varying vec3 vColor;
 varying vec3 vParams;
-varying vec2 vGround;
-varying float vFog;
+varying vec3 vWorld;
 void main() {
   vec4 world = uModel * vec4(aPosition, 1.0);
   vNormal = uNormal * aNormal;
   vView = uEye - world.xyz;
   vColor = aColor;
   vParams = aParams;
-  vGround = world.xz;
-  float d = length(vView) * uFogDensity;
-  vFog = 1.0 - exp(-d * d);
+  vWorld = world.xyz;
   gl_Position = uViewProj * world;
 }`;
 
 const FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float; // distances run to hundreds of metres
+#else
 precision mediump float;
+#endif
 uniform vec3 uLight;
 uniform vec3 uSun;
 uniform vec3 uSky;
 uniform vec3 uBounce;
 uniform vec3 uFogColor;
+uniform float uFogDensity;
 uniform float uPass; // 0 lit, 1 shadow, 2 unlit backdrop, 3 glow
 uniform float uShadow;
 uniform float uClip;
 uniform float uPulse;
+uniform sampler2D uNoise; // r: fine grain, g: soft clouds; tiles in both directions
+uniform vec4 uMist; // strength, pattern scale, drift x, drift z
+uniform float uGrain;
 varying vec3 vNormal;
 varying vec3 vView;
 varying vec3 vColor;
 varying vec3 vParams;
-varying vec2 vGround;
-varying float vFog;
+varying vec3 vWorld;
 void main() {
+  if (uPass > 1.5 && uPass < 2.5) {
+    gl_FragColor = vec4(pow(vColor, vec3(1.0 / 2.2)), 1.0);
+    return;
+  }
+
+  // Fog thickens with the square of distance. Mist adds to it in drifting
+  // banks that hug the ground and keep clear of the camera.
+  float range = length(vView);
+  float d = range * uFogDensity;
+  float fog = 1.0 - exp(-d * d);
+  float bank = 0.5;
+  if (uMist.x > 0.0) {
+    bank = texture2D(uNoise, vWorld.xz * uMist.y + uMist.zw).g;
+    float low = exp(-max(vWorld.y, 0.0) * 0.2);
+    fog = min(1.0, fog + uMist.x * bank * bank * low * smoothstep(8.0, 55.0, range));
+  }
+
   if (uPass > 2.5) {
     // Glow: a see-through tint, strongest where the surface faces the
     // camera and fading to nothing at the rim, so a plain ball reads as a
     // soft halo. A tint rather than added light, so it shows up on snow
     // and sand as well as in the dark.
     float facing = max(dot(normalize(vNormal), normalize(vView)), 0.0);
-    float glow = facing * facing * (1.0 - vFog) * uPulse;
+    float glow = facing * facing * (1.0 - fog) * uPulse;
     gl_FragColor = vec4(pow(vColor, vec3(1.0 / 2.2)), min(glow * 0.5, 1.0));
-    return;
-  }
-  if (uPass > 1.5) {
-    gl_FragColor = vec4(pow(vColor, vec3(1.0 / 2.2)), 1.0);
     return;
   }
   if (uPass > 0.5) {
     // Shadow: darken whatever is already there, fading out with the fog.
-    if (uClip > 0.0 && dot(vGround, vGround) > uClip * uClip) discard;
-    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * (1.0 - vFog));
+    if (uClip > 0.0 && dot(vWorld.xz, vWorld.xz) > uClip * uClip) discard;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * (1.0 - fog));
     return;
   }
   vec3 n = normalize(vNormal);
-  vec3 v = normalize(vView);
+  vec3 v = vView / max(range, 0.001);
+
+  // Grain: flat ground and anything else facing the sky is mottled a
+  // little, finely and in broad patches, so big areas are never one tone.
+  // The broad patches are the mist's own pattern, so they drift with it,
+  // like the shadows of clouds.
+  vec3 base = vColor;
+  if (uGrain > 0.0) {
+    float fine = texture2D(uNoise, vWorld.xz * 0.29).r;
+    base *= 1.0 + uGrain * ((fine - 0.5) + (0.5 - bank) * 0.9) * max(n.y, 0.0);
+  }
 
   // Wrapped diffuse keeps the dark side soft and readable, like a toy.
   float wrap = dot(n, uLight) * 0.5 + 0.5;
   vec3 ambient = mix(uBounce, uSky, n.y * 0.5 + 0.5);
-  vec3 color = vColor * (ambient * 0.5 + uSun * (wrap * wrap * 0.95));
+  vec3 color = base * (ambient * 0.5 + uSun * (wrap * wrap * 0.95));
 
   vec3 h = normalize(uLight + v);
   color += uSun * vParams.x * pow(max(dot(n, h), 0.0), vParams.y);
@@ -89,9 +121,56 @@ void main() {
 
   color = mix(color, vColor * (1.35 * uPulse), vParams.z);
   // Glowing things stay visible further into the fog.
-  color = mix(color, uFogColor, vFog * (1.0 - 0.6 * vParams.z));
+  color = mix(color, uFogColor, fog * (1.0 - 0.6 * vParams.z));
   gl_FragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
 }`;
+
+/**
+ * A square tile of noise that repeats without a seam, as RGBA bytes.
+ * Red is fine grain; green is soft and cloudy.
+ */
+function noiseTile(size) {
+  let seed = 20240;
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  // Smooth noise: random values on a coarse grid that wraps, blended between.
+  const layer = (cells) => {
+    const grid = Float32Array.from({ length: cells * cells }, random);
+    const at = (x, y) => grid[(y % cells) * cells + (x % cells)];
+    const ease = (t) => t * t * (3 - 2 * t);
+    return (u, v) => {
+      const x = u * cells;
+      const y = v * cells;
+      const x0 = Math.floor(x);
+      const y0 = Math.floor(y);
+      const fx = ease(x - x0);
+      const fy = ease(y - y0);
+      const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * fx;
+      const bottom = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * fx;
+      return top + (bottom - top) * fy;
+    };
+  };
+  const grain = [layer(32), layer(16)];
+  const cloud = [layer(4), layer(8), layer(16)];
+  const pixels = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const v = y / size;
+      const fine = grain[0](u, v) * 0.65 + grain[1](u, v) * 0.35;
+      const soft = cloud[0](u, v) * 0.55 + cloud[1](u, v) * 0.3 + cloud[2](u, v) * 0.15;
+      const i = (y * size + x) * 4;
+      pixels[i] = Math.round(fine * 255);
+      // Stretch the clouds so there are clear gaps between them.
+      pixels[i + 1] = Math.round(Math.min(1, Math.max(0, (soft - 0.3) * 2.4)) * 255);
+      pixels[i + 2] = 0;
+      pixels[i + 3] = 255;
+    }
+  }
+  return pixels;
+}
 
 const WHITE = [1, 1, 1];
 const DEFAULT_BOUNCE = [0.42, 0.5, 0.68];
@@ -104,6 +183,7 @@ export function createRenderer(canvas) {
   let program;
   let uniforms;
   let buffers;
+  let noise;
   const ATTR = { position: 0, normal: 1, color: 2, params: 3 };
 
   function compile(type, source) {
@@ -135,6 +215,17 @@ export function createRenderer(canvas) {
       uniforms[name] = gl.getUniformLocation(program, name);
     }
     buffers = new WeakMap();
+
+    const size = 64;
+    noise = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, noise);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, noiseTile(size));
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
     gl.enable(gl.CULL_FACE);
     gl.clearColor(0, 0, 0, 0);
     gl.clearStencil(0);
@@ -220,6 +311,9 @@ export function createRenderer(canvas) {
    *   light:    unit vector pointing from the scene toward the light,
    *   lighting: optional { sun, sky, bounce } linear colours,
    *   fog:      optional { color, density }, linear colour,
+   *   mist:     optional { strength, scale, offset: [x, z] }: drifting banks
+   *             of thicker fog near the ground (needs fog),
+   *   grain:    optional strength of the mottling on upward-facing surfaces,
    *   pulse:    optional brightness multiplier for glowing surfaces,
    *   sky:      optional Node drawn unlit behind everything, centred on the camera,
    *   ground:   optional Node of flat layers at y = 0, drawn in order with no depth test,
@@ -260,6 +354,12 @@ export function createRenderer(canvas) {
     gl.uniform1f(uniforms.uFogDensity, 0);
     gl.uniform1f(uniforms.uPulse, scene.pulse ?? 1);
     gl.uniform1f(uniforms.uClip, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, noise);
+    gl.uniform1i(uniforms.uNoise, 0);
+    const mist = fog && scene.mist;
+    gl.uniform4f(uniforms.uMist, mist ? mist.strength : 0, mist ? mist.scale : 0, mist ? mist.offset[0] : 0, mist ? mist.offset[1] : 0);
+    gl.uniform1f(uniforms.uGrain, scene.grain ?? 0);
 
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
@@ -329,9 +429,22 @@ export function createRenderer(canvas) {
     }
   }
 
+  /** Frees the graphics memory held for every mesh under `node`. */
+  function release(node) {
+    node.walk((child) => {
+      const entry = child.geometry && buffers.get(child.geometry);
+      if (!entry) return;
+      for (const name of ['position', 'normal', 'color', 'params', 'index']) {
+        if (entry[name]) gl.deleteBuffer(entry[name]);
+      }
+      buffers.delete(child.geometry);
+    });
+  }
+
   return {
     canvas,
     render,
+    release,
     setSize,
     /** Draw calls in the last frame, for keeping an eye on performance. */
     get drawCalls() {

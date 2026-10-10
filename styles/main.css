@@ -181,6 +181,123 @@ button:focus-visible {
   box-shadow: 0 2px 0 var(--sun-deep);
 }
 
+/* ---------- Who is playing, and their coins ---------- */
+
+.coin {
+  display: inline-grid;
+  flex: none;
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.coin svg,
+.face svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A driver's face on a round badge. */
+.face {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--navy-deep);
+}
+
+#profile-chip {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top)) + 52px);
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 60%;
+  min-height: 44px;
+  padding: 3px 14px 3px 4px;
+  border: 3px solid var(--paper);
+  border-radius: 999px;
+  background: var(--navy);
+  box-shadow: 0 3px 0 rgb(13 29 77 / 45%);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+#profile-chip:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgb(13 29 77 / 45%);
+}
+
+#profile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#wallet,
+.wallet-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  background: rgb(13 29 77 / 80%);
+  font-size: 1.125rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+#wallet {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+  right: max(12px, env(safe-area-inset-right));
+}
+
+/* A part being tried on that the player does not own yet. */
+#buy-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  border: 3px solid var(--paper);
+  border-radius: 20px;
+  background: var(--navy);
+  box-shadow: 0 4px 0 rgb(13 29 77 / 45%);
+  white-space: nowrap;
+}
+
+#buy-name {
+  font-size: 1rem;
+  font-weight: 900;
+  font-style: italic;
+}
+
+#buy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 20px;
+  font-size: 1.0625rem;
+}
+
+.big-button:disabled {
+  background: #9aa3bd;
+  box-shadow: 0 5px 0 #6f7893;
+  cursor: default;
+}
+
 /* ---------- Part picker ---------- */
 
 #panel {
@@ -292,6 +409,46 @@ button:focus-visible {
   line-height: 1.15;
 }
 
+/* For sale: a padlock on the picture and a price under the name. */
+.card.locked .card-image {
+  opacity: 0.6;
+}
+
+.card-lock {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 24px;
+  height: 24px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--navy);
+  color: var(--paper);
+}
+
+.card-lock svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.card-price {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: #8a5a00;
+  font-size: 0.8125rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-price svg {
+  width: 15px;
+  height: 15px;
+}
+
 .card-count {
   position: absolute;
   top: 10px;
@@ -366,6 +523,9 @@ body[data-screen='race'] #garage {
 
 body[data-screen='race'] #panel,
 body[data-screen='race'] #paints,
+body[data-screen='race'] #profile-chip,
+body[data-screen='race'] #wallet,
+body[data-screen='race'] #buy-bar,
 body[data-screen='race'] #shuffle-button,
 body[data-screen='race'] #race-button {
   display: none;
@@ -448,6 +608,126 @@ body[data-screen='race'] #fullscreen-button {
   text-shadow:
     0 0.06em 0 var(--navy-deep),
     0 0 24px rgb(13 29 77 / 60%);
+}
+
+#hud-coins {
+  position: absolute;
+  top: calc(max(8px, env(safe-area-inset-top)) + 60px);
+  left: max(16px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nameplates: one over each car, moved every frame by the HUD. */
+#plates {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 2px;
+  border-radius: 999px;
+  background: rgb(13 29 77 / 72%);
+  color: var(--paper);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-shadow: none;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+.plate .face {
+  width: 22px;
+  height: 22px;
+  border-width: 1.5px;
+}
+
+.plate-you {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+/* The windscreen: each effect is a small repeating texture (set by
+   ui/screenfx.js as --tile) that a mask lets through only near the edges. */
+#screen-fx {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fx {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image: var(--tile);
+  background-size: 46vmin;
+  -webkit-mask-image: radial-gradient(ellipse 64% 64% at 50% 50%, transparent 52%, #000 100%);
+  mask-image: radial-gradient(ellipse 64% 64% at 50% 50%, transparent 52%, #000 100%);
+  transition: opacity 0.7s;
+}
+
+.fx.on {
+  opacity: 1;
+  transition-duration: 0.08s;
+}
+
+/* Always there: the corners are shaded, in a colour that suits the track. */
+.fx-vignette {
+  opacity: 1;
+  background: radial-gradient(ellipse 75% 75% at 50% 50%, transparent 62%, var(--vignette, rgb(0 0 0 / 38%)) 135%);
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.fx-oil,
+.fx-slime {
+  background-size: 62vmin;
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, transparent 42%, #000 92%);
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, transparent 42%, #000 92%);
+}
+
+.fx-slime {
+  background-position: 31vmin 17vmin;
+}
+
+/* Frost also mists the glass over. */
+.fx-frost {
+  background-image: var(--tile), radial-gradient(ellipse 70% 70% at 50% 50%, transparent 60%, rgb(214 244 255 / 75%) 125%);
+  background-size: 34vmin, 100% 100%;
+  -webkit-mask-image: radial-gradient(ellipse 68% 68% at 50% 50%, transparent 56%, #000 102%);
+  mask-image: radial-gradient(ellipse 68% 68% at 50% 50%, transparent 56%, #000 102%);
+}
+
+/* Sparks crawl round the edges, with a cold glow behind them. */
+.fx-zap {
+  background-image: var(--tile), radial-gradient(ellipse 70% 70% at 50% 50%, transparent 62%, rgb(102 244 255 / 55%) 125%);
+  background-size: 50vmin, 100% 100%;
+  -webkit-mask-image: radial-gradient(ellipse 66% 66% at 50% 50%, transparent 48%, #000 96%);
+  mask-image: radial-gradient(ellipse 66% 66% at 50% 50%, transparent 48%, #000 96%);
+}
+
+.fx-zap.on {
+  animation: zap 0.24s steps(1) infinite;
+}
+
+@keyframes zap {
+  0% { background-position: 0 0, 0 0; opacity: 1; }
+  25% { background-position: 23vmin 9vmin, 0 0; opacity: 0.6; }
+  50% { background-position: 11vmin 31vmin, 0 0; opacity: 1; }
+  75% { background-position: 37vmin 20vmin, 0 0; opacity: 0.75; }
 }
 
 /* What just happened to you on the track: green for good, red for bad. */
@@ -578,7 +858,7 @@ body[data-screen='race'] #fullscreen-button {
   background: #f2443a;
 }
 
-/* ---------- Sheets: track picker and results ---------- */
+/* ---------- Sheets: track picker, results, character ---------- */
 
 .sheet {
   position: absolute;
@@ -586,16 +866,25 @@ body[data-screen='race'] #fullscreen-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
+  gap: 16px;
   padding:
     max(20px, env(safe-area-inset-top))
-    max(20px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-right))
     max(20px, env(safe-area-inset-bottom))
-    max(20px, env(safe-area-inset-left));
+    max(16px, env(safe-area-inset-left));
+  overflow-x: hidden;
   overflow-y: auto;
-  background: rgb(13 29 77 / 88%);
+  background: rgb(13 29 77 / 92%);
   text-align: center;
+  /* Its own layer, so that things placed behind its content stay in front of its background. */
+  isolation: isolate;
+}
+
+/* Centred when there is room; scrolls from the top when there is not. */
+.sheet::before,
+.sheet::after {
+  content: '';
+  flex: 1 0 0px;
 }
 
 .sheet-title {
@@ -605,6 +894,14 @@ body[data-screen='race'] #fullscreen-button {
   font-style: italic;
   line-height: 1.1;
   text-wrap: balance;
+}
+
+.sheet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
 }
 
 .big-button {
@@ -621,6 +918,11 @@ body[data-screen='race'] #fullscreen-button {
   font-style: italic;
 }
 
+.big-button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 var(--sun-deep);
+}
+
 .plain-button {
   min-height: 46px;
   padding: 0 20px;
@@ -631,20 +933,65 @@ body[data-screen='race'] #fullscreen-button {
   font-weight: 800;
 }
 
+/* How good the rivals are: three buttons in a row, one chosen. */
+#difficulty {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 12%);
+}
+
+.level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 86px;
+  min-height: 46px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.level[aria-checked='true'] {
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--sun-deep);
+}
+
+.level-name {
+  font-size: 1rem;
+}
+
+.level-prize {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  font-style: normal;
+  opacity: 0.9;
+}
+
+.level-prize svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* A card per track: its picture, its name, and how to open it if it is locked. */
 #track-list {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  width: min(100%, 420px);
+  width: min(100%, 460px);
 }
 
 .track-card {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  padding: 8px;
-  border: 0;
+  display: flex;
+  flex-direction: column;
   border-radius: 18px;
   background: var(--paper);
   color: var(--ink);
@@ -652,43 +999,198 @@ body[data-screen='race'] #fullscreen-button {
   text-align: left;
 }
 
-.track-card:active {
+.track-play {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 6px 6px 10px;
+  border: 0;
+  border-radius: 18px;
+  background: none;
+  color: inherit;
+  text-align: inherit;
+}
+
+.track-card:not(.locked):active {
   transform: translateY(2px);
   box-shadow: 0 3px 0 var(--navy-deep);
 }
 
-.track-card canvas {
+.track-play:disabled {
+  cursor: default;
+}
+
+.track-art {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 13px;
+  background: var(--navy);
+}
+
+.track-art img {
   display: block;
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.track-map {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 38%;
   height: auto;
-  border-radius: 12px;
+}
+
+.track-wins {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--sun);
+  font-size: 0.75rem;
+  font-weight: 900;
 }
 
 .track-name {
-  font-size: 1.25rem;
+  margin: 8px 6px 0;
+  font-size: 1.0625rem;
   font-weight: 900;
   font-style: italic;
   line-height: 1.15;
 }
 
+.track-blurb {
+  margin: 2px 6px 0;
+  color: #5a6590;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.track-card.locked .track-art img,
+.track-card.locked .track-map {
+  filter: grayscale(0.85) brightness(0.6);
+}
+
+.track-card.locked .track-blurb {
+  display: none;
+}
+
+.track-card.locked .track-play {
+  flex: none;
+  padding-bottom: 2px;
+}
+
+.track-lock {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+  padding: 4px 12px 10px;
+}
+
+.track-lock-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--navy);
+}
+
+.track-lock-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.track-lock-how {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.track-buy {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--sun);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--sun-deep);
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.track-buy svg {
+  width: 17px;
+  height: 17px;
+}
+
+.track-buy:disabled {
+  background: #e3e7f2;
+  box-shadow: 0 3px 0 #c3cce6;
+  color: #7d89ad;
+  cursor: default;
+}
+
 @media (orientation: landscape) and (min-width: 700px) {
   #track-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: min(100%, 860px);
-    gap: 16px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(100%, 1180px);
+    gap: 14px;
   }
+}
 
-  .track-card {
-    grid-template-columns: minmax(0, 1fr);
-    text-align: center;
-    padding: 10px 10px 14px;
-  }
+/* ---------- Results ---------- */
+
+#results {
+  gap: 12px;
+}
+
+#results-art {
+  flex: none;
+  width: clamp(96px, 26vmin, 190px);
+  aspect-ratio: 1;
+}
+
+#results-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The light behind the cup turns slowly. */
+.art-rays {
+  transform-origin: 100px 100px;
+  animation: turn 14s linear infinite;
+}
+
+@keyframes turn {
+  to { transform: rotate(360deg); }
+}
+
+#results[data-place='1'] .sheet-title {
+  color: var(--sun);
+}
+
+#results-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(100%, 380px);
 }
 
 #results-list {
   display: grid;
-  gap: 8px;
-  width: min(100%, 380px);
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -696,10 +1198,10 @@ body[data-screen='race'] #fullscreen-button {
 
 .result {
   display: grid;
-  grid-template-columns: 1.4em 18px minmax(0, 1fr) auto;
+  grid-template-columns: 1.2em 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 6px 14px 6px 12px;
   border-radius: 14px;
   background: rgb(255 255 255 / 12%);
   font-size: 1.0625rem;
@@ -713,9 +1215,18 @@ body[data-screen='race'] #fullscreen-button {
   color: var(--ink);
 }
 
+.result .face {
+  width: 30px;
+  height: 30px;
+}
+
+/* The colour of the racer's car, as a dot on the corner of the badge. */
 .result-paint {
-  width: 18px;
-  height: 18px;
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 13px;
+  height: 13px;
   border: 2px solid var(--paper);
   border-radius: 50%;
 }
@@ -731,11 +1242,295 @@ body[data-screen='race'] #fullscreen-button {
   opacity: 0.85;
 }
 
+/* What the race paid. */
+#results-coins {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px 14px 12px;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 12%);
+}
+
+#results-lines {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#results-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.result-coins {
+  color: var(--sun);
+  font-weight: 900;
+}
+
+#results-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 2px solid rgb(255 255 255 / 25%);
+  color: var(--sun);
+  font-size: 1.625rem;
+  font-weight: 900;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+}
+
+#results-note {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+#results-note.big-news {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #1f9d55;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
 .sheet-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+@media (orientation: landscape) and (min-width: 640px) {
+  #results-body {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    width: min(100%, 700px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  #results-art {
+    position: absolute;
+    left: max(16px, env(safe-area-inset-left));
+    top: max(12px, env(safe-area-inset-top));
+    width: 84px;
+  }
+}
+
+/* Confetti for a win: bits of colour falling behind everything. */
+#confetti {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#confetti i {
+  position: absolute;
+  top: -20px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  animation: confetti 3.4s linear infinite;
+}
+
+@keyframes confetti {
+  to { transform: translate3d(var(--sway, 0), 110vh, 0) rotate(700deg); }
+}
+
+/* ---------- Who is driving? ---------- */
+
+#character {
+  gap: 18px;
+  background: linear-gradient(#1d43a8, var(--navy) 70%);
+}
+
+#character-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 520px);
+}
+
+.character {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 2px 8px;
+  border: 4px solid transparent;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 10%);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.character svg {
+  display: block;
+  width: 100%;
+  max-width: 72px;
+  height: auto;
+}
+
+.character[aria-checked='true'] {
+  border-color: var(--sun);
+  background: rgb(255 255 255 / 22%);
+}
+
+#character-name-row {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 300px);
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+#character-name {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 4px solid var(--navy-deep);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.375rem;
+  font-weight: 900;
+  text-align: center;
+  /* The page turns text selection off; a text box needs it back. */
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#character-name:focus-visible {
+  outline: 3px solid var(--sun);
+  outline-offset: 2px;
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  #character {
+    gap: 10px;
+  }
+
+  #character-list {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    width: min(100%, 760px);
+  }
+
+  .character span {
+    display: none;
+  }
+}
+
+/* ---------- Loading ---------- */
+
+#loading {
+  position: absolute;
+  inset: -1px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  background: linear-gradient(#1d43a8, var(--navy) 70%);
+  text-align: center;
+}
+
+/* The picture of the track being loaded, with the panel over its lower half. */
+#loading-art {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+}
+
+#loading.with-art {
+  justify-content: flex-end;
+}
+
+#loading.with-art #loading-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 30%, rgb(13 29 77 / 92%) 78%);
+}
+
+#loading-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 440px);
+}
+
+#loading-wheel {
+  width: 64px;
+  height: 64px;
+  animation: turn 1.1s linear infinite;
+}
+
+#loading-wheel svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#loading-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 8vmin, 3.25rem);
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1.05;
+  text-shadow: 0 0.07em 0 var(--navy-deep);
+}
+
+#loading-text {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+#loading-bar {
+  width: 100%;
+  height: 18px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--navy-deep);
+  box-shadow: 0 0 0 3px var(--paper);
+}
+
+#loading-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sun);
+  transition: width 0.3s;
+}
+
+#loading-tip {
+  margin: 4px 0 0;
+  max-width: 34ch;
+  color: #c5d2f5;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  text-wrap: balance;
 }
 
 /* ---------- Start screen: the tap that dismisses it unlocks fullscreen ---------- */
@@ -805,9 +1600,22 @@ body[data-screen='race'] #fullscreen-button {
 @media (prefers-reduced-motion: reduce) {
   .card:active,
   .round-button:active,
-  .track-card:active,
+  .track-card:not(.locked):active,
+  .big-button:active:not(:disabled),
+  #profile-chip:active,
   #race-button:active,
   #start-button:active {
     transform: none;
+  }
+
+  .art-rays,
+  #loading-wheel,
+  #confetti i,
+  .fx-zap.on {
+    animation: none;
+  }
+
+  #confetti {
+    display: none;
   }
 }

@@ -1,3 +1,4 @@
+import { characterSvg } from './characters.js';
 import { GAME } from './config.js';
 import { createRenderer } from './engine/renderer.js';
 import {
@@ -12,15 +13,24 @@ import { createGarageScene } from './garage/scene.js';
 import { createThumbnailer } from './garage/thumbnails.js';
 import { createGarageUI } from './garage/ui.js';
 import { createLoop } from './loop.js';
-import { sanitizeBuild } from './parts/catalog.js';
+import { loadProfile, recordRace, saveProfile, trackLock, trackOpen } from './profile.js';
 import { createControls } from './race/controls.js';
-import { makeGrid } from './race/grid.js';
+import { findDifficulty, makeGrid } from './race/grid.js';
 import { createHud, createTrackPicker } from './race/hud.js';
+import { raceRewards } from './race/rewards.js';
 import { createRaceScene } from './race/scene.js';
+import { TRACKS } from './race/tracks/index.js';
+import { createCharacterScreen } from './ui/character.js';
+import { createLoading, paint } from './ui/loading.js';
+import { createScreenFx } from './ui/screenfx.js';
 import { createViewport } from './viewport.js';
 
-const SAVE_KEY = 'garage.build';
+const PICTURES_KEY = 'pictures';
+const PICTURE_SIZE = [480, 270];
+const LOADING_AT_LEAST = 900; // milliseconds a loading screen stays up, so it can be read
+
 const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const canvas = $('game');
 const startScreen = $('start');
@@ -36,20 +46,21 @@ function showHint(text) {
   startHint.hidden = false;
 }
 
-// The player's build survives a reload. Storage can be unavailable (private
-// windows, blocked site data), in which case the game just starts fresh.
-function loadBuild() {
+// Pictures of the tracks are taken once and kept, since taking them means
+// building every track. A new version of the game takes them again.
+function loadPictures() {
   try {
-    return JSON.parse(localStorage.getItem(SAVE_KEY));
+    const saved = JSON.parse(localStorage.getItem(PICTURES_KEY));
+    return saved?.version === GAME.picturesVersion ? saved.images : {};
   } catch {
-    return null;
+    return {};
   }
 }
-function saveBuild(build) {
+function savePictures(images) {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(build));
+    localStorage.setItem(PICTURES_KEY, JSON.stringify({ version: GAME.picturesVersion, images }));
   } catch {
-    // Not saved; nothing else to do.
+    // No room, or no storage: they will be taken again next time.
   }
 }
 
@@ -59,20 +70,49 @@ function startGame() {
   const garage = createGarageScene(renderer, view);
   const race = createRaceScene(renderer, view);
   const controls = createControls();
-  const hud = createHud();
-  const build = sanitizeBuild(loadBuild());
+  const fx = createScreenFx();
+  const hud = createHud({ fx });
+  const loading = createLoading();
+  const characterScreen = createCharacterScreen();
+  const profile = loadProfile();
+  const pictures = loadPictures();
+  const difficulty = () => findDifficulty(profile.difficulty);
 
   // ---------- Garage ----------
 
-  garage.setBuild(build);
-  createGarageUI({
-    build,
+  garage.setBuild(profile.build);
+  const garageUI = createGarageUI({
+    profile,
     snapshot: createThumbnailer(),
-    onChange(changed, category) {
-      garage.setBuild(changed, category);
-      saveBuild(changed);
+    onChange(shown, category) {
+      garage.setBuild(shown, category);
+      saveProfile(profile);
     },
+    onSpend: refreshMoney,
   });
+
+  function refreshProfileChip() {
+    $('profile-face').innerHTML = characterSvg(profile.character);
+    $('profile-name').textContent = profile.name;
+  }
+
+  /** Call after coins change: everything that shows or depends on them. */
+  function refreshMoney() {
+    $('wallet-coins').textContent = String(profile.coins);
+    saveProfile(profile);
+    garageUI.refresh();
+    picker.refresh();
+  }
+
+  function editCharacter() {
+    characterScreen.open(profile, ({ character, name }) => {
+      profile.character = character;
+      profile.name = name;
+      saveProfile(profile);
+      refreshProfileChip();
+    });
+  }
+  $('profile-chip').addEventListener('click', editCharacter);
 
   // Drag to turn the vehicle and tilt the view. One finger or the mouse.
   let dragging = null;
@@ -104,6 +144,8 @@ function startGame() {
   let currentTrack = null;
   let sinceFinish = 0;
   let resultsShown = false;
+  let busy = false; // a loading screen is up
+  const plates = [];
 
   function showScreen(name) {
     activeScreen = name;
@@ -114,28 +156,56 @@ function startGame() {
   }
 
   function openTrackPicker() {
-    $('track-picker-title').textContent = 'Pick a track';
+    // Whatever was being tried on stays in the shop.
+    garageUI.stopTrying();
+    picker.refresh();
     $('track-picker').hidden = false;
   }
 
-  function startRace(theme) {
+  async function startRace(theme) {
+    if (busy || !trackOpen(profile, theme)) return;
+    busy = true;
     currentTrack = theme;
-    // The first visit to a track builds its scenery, which can take a
-    // moment on a phone. Say so, and let that message paint before starting.
-    $('track-picker-title').textContent = 'Building the track…';
-    $('track-picker').hidden = false;
+    $('track-picker').hidden = true;
     $('results').hidden = true;
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        race.start({ theme, drivers: makeGrid(build), laps: GAME.laps });
-        hud.reset(race.session);
-        hud.update(race.session);
-        sinceFinish = 0;
-        resultsShown = false;
-        $('track-picker').hidden = true;
-        showScreen('race');
-      }, 0);
-    });
+    // Building a track takes a moment on a phone the first time. Show its
+    // picture meanwhile, and let that paint before the work starts.
+    loading.show({ title: theme.name, text: theme.blurb, image: pictures[theme.id] });
+    const shownAt = performance.now();
+    try {
+      loading.progress(0.2);
+      await paint();
+
+      race.start({ theme, drivers: makeGrid(profile.build, profile, difficulty()), laps: GAME.laps, rules: difficulty() });
+      loading.progress(0.85);
+      await paint();
+      hud.reset(race.session, race.site);
+      fx.tint(theme.vignette || 'rgb(0 0 0 / 38%)');
+      hud.update(race.session, race.plates(plates));
+      sinceFinish = 0;
+      resultsShown = false;
+
+      loading.progress(1);
+      await sleep(Math.max(150, LOADING_AT_LEAST - (performance.now() - shownAt)));
+      showScreen('race');
+    } catch (error) {
+      // Better back in the garage than stuck on a loading screen.
+      console.error(error);
+      showScreen('garage');
+    } finally {
+      loading.hide();
+      busy = false;
+    }
+  }
+
+  function finishRace(session) {
+    const rewards = raceRewards(session, difficulty());
+    const opened = recordRace(profile, currentTrack, session.player.place, rewards.total);
+    // What is still locked after this track, if anything, and how far off.
+    const after = TRACKS[TRACKS.indexOf(currentTrack) + 1];
+    const next = after && !trackOpen(profile, after) ? { theme: after, winsLeft: trackLock(profile, after).winsLeft } : null;
+    refreshMoney();
+    hud.showResults(session, { rewards, opened, next });
   }
 
   function backToGarage() {
@@ -144,7 +214,12 @@ function startGame() {
     showScreen('garage');
   }
 
-  createTrackPicker(startRace);
+  const picker = createTrackPicker({
+    profile,
+    pictures,
+    onPick: startRace,
+    onChange: refreshMoney,
+  });
   $('race-button').addEventListener('click', openTrackPicker);
   $('track-back').addEventListener('click', backToGarage);
   $('quit-button').addEventListener('click', backToGarage);
@@ -155,10 +230,53 @@ function startGame() {
     openTrackPicker();
   });
 
+  refreshProfileChip();
+  $('wallet-coins').textContent = String(profile.coins);
+
+  // ---------- First things after "Play" ----------
+
+  /**
+   * Takes any pictures of the tracks that are missing, behind a loading
+   * screen, then asks a new player who they are.
+   */
+  async function welcome() {
+    // The first track is photographed last, so that it is the one still
+    // built when the player goes to race on it.
+    const missing = TRACKS.filter((theme) => !pictures[theme.id]).reverse();
+    if (missing.length) {
+      busy = true;
+      loading.show({ title: GAME.name, text: 'Getting the tracks ready' });
+      await paint();
+      const shownAt = performance.now();
+      const grid = () => makeGrid(profile.build, { name: profile.name, character: profile.character }, difficulty());
+      for (let i = 0; i < missing.length; i++) {
+        const theme = missing[i];
+        loading.text(`Getting ${theme.name} ready`);
+        loading.progress(i / missing.length);
+        await paint();
+        try {
+          pictures[theme.id] = race.snapshot({ theme, drivers: grid(), rules: difficulty(), width: PICTURE_SIZE[0], height: PICTURE_SIZE[1] });
+        } catch (error) {
+          // A track without a picture still races; its card shows a map.
+          console.error(error);
+        }
+        // The picture was drawn on the game's canvas: put the garage back.
+        garage.render();
+      }
+      savePictures(pictures);
+      picker.refresh();
+      loading.progress(1);
+      await sleep(Math.max(150, LOADING_AT_LEAST - (performance.now() - shownAt)));
+      loading.hide();
+      busy = false;
+    }
+    if (!profile.character) editCharacter();
+  }
+
   // ---------- Frame loop ----------
 
   showScreen('garage');
-  return createLoop({
+  const loop = createLoop({
     update(dt) {
       if (activeScreen !== 'race') {
         garage.update(dt);
@@ -166,13 +284,13 @@ function startGame() {
       }
       const session = race.session;
       race.update(dt, controls.read());
-      hud.update(session);
+      hud.update(session, race.plates(plates));
       // Let the car roll over the line for a moment before the results.
       if (session.phase === 'finished' && !resultsShown) {
         sinceFinish += dt;
         if (sinceFinish > 1.4) {
           resultsShown = true;
-          hud.showResults(session);
+          finishRace(session);
         }
       }
     },
@@ -181,6 +299,8 @@ function startGame() {
       else garage.render();
     },
   });
+
+  return { loop, welcome };
 }
 
 // The corner button offers a way back in after the player leaves fullscreen
@@ -190,16 +310,16 @@ function refreshFullscreenButton() {
   fullscreenButton.hidden = !started || !fullscreenSupported || isInstalled() || isFullscreen();
 }
 
-let loop = null;
+let game = null;
 try {
-  loop = startGame();
+  game = startGame();
 } catch (error) {
   console.error(error);
   startButton.disabled = true;
   showHint('This browser cannot show 3D graphics (WebGL), which the game needs.');
 }
 
-if (loop && !fullscreenSupported && !isInstalled()) {
+if (game && !fullscreenSupported && !isInstalled()) {
   showHint('For fullscreen, add this page to your home screen.');
 }
 
@@ -208,12 +328,15 @@ startButton.addEventListener('click', async () => {
   if (!isInstalled()) await enterFullscreen();
   startScreen.hidden = true;
   refreshFullscreenButton();
-  loop.start();
+  game.loop.start();
+  game.welcome();
 });
 
 fullscreenButton.addEventListener('click', () => enterFullscreen());
 onFullscreenChange(refreshFullscreenButton);
 
 window.addEventListener('keydown', (event) => {
+  // Not while a name is being typed.
+  if (event.target instanceof HTMLInputElement) return;
   if (event.code === 'KeyF' && !event.repeat && startScreen.hidden) toggleFullscreen();
 });

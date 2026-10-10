@@ -20,6 +20,11 @@ export const GAME = {
   triangleBudget: 200,
 
   // Show each part's triangle count on its card in the garage.
-  // Handy while modelling; turn off for players.
-  showTriangleCounts: true,
+  // Handy while modelling; off for players, who see prices there instead.
+  showTriangleCounts: false,
+
+  // The pictures of the tracks on the track picker are taken once and kept
+  // in the browser. Raise this number whenever the tracks change how they
+  // look, and every player's pictures are taken again.
+  picturesVersion: 1,
 };

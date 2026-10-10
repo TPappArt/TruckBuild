@@ -32,11 +32,24 @@
 
         <div id="paints" role="radiogroup" aria-label="Paint colour"></div>
 
+        <!-- Who is playing, and what they have to spend. -->
+        <button id="profile-chip" type="button" aria-label="Change your driver">
+          <span id="profile-face" class="face"></span>
+          <span id="profile-name"></span>
+        </button>
+        <div id="wallet" aria-label="Coins"><span class="coin"></span><span id="wallet-coins">0</span></div>
+
         <button id="fullscreen-button" class="round-button" type="button" aria-label="Enter fullscreen" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
           </svg>
         </button>
+
+        <!-- Shown while a part the player does not own is being tried on. -->
+        <div id="buy-bar" hidden>
+          <span id="buy-name"></span>
+          <button id="buy-button" class="big-button" type="button"></button>
+        </div>
 
         <button id="race-button" type="button">Race</button>
 
@@ -53,10 +66,24 @@
 
         <!-- Shown during a race, over the 3D view. -->
         <div id="hud" hidden>
+          <!-- What the driver's "windscreen" picks up: oil, sparks, frost, slime.
+               Each layer is a small repeating texture, masked to the edges. -->
+          <div id="screen-fx" aria-hidden="true">
+            <div class="fx fx-vignette"></div>
+            <div class="fx fx-oil"></div>
+            <div class="fx fx-slime"></div>
+            <div class="fx fx-frost"></div>
+            <div class="fx fx-zap"></div>
+          </div>
+
+          <!-- A nameplate over every car. -->
+          <div id="plates" aria-hidden="true"></div>
+
           <div id="drive-zone"></div>
           <div id="hud-place"><span id="hud-place-number">1</span><span id="hud-place-suffix">st</span></div>
+          <div id="hud-coins"><span class="coin"></span><span id="hud-coins-count">0</span></div>
           <div id="hud-info">
-            <span id="hud-lap">Lap 1/3</span>
+            <span id="hud-lap">Lap 1/2</span>
             <span id="hud-time">0:00.0</span>
           </div>
           <button id="quit-button" class="round-button" type="button" aria-label="Leave the race">
@@ -91,18 +118,63 @@
     </main>
 
     <div id="track-picker" class="sheet" hidden>
-      <h2 id="track-picker-title" class="sheet-title">Pick a track</h2>
+      <div class="sheet-head">
+        <h2 id="track-picker-title" class="sheet-title">Pick a track</h2>
+        <div class="wallet-inline" aria-label="Coins"><span class="coin"></span><span id="picker-coins">0</span></div>
+      </div>
+      <div id="difficulty" role="radiogroup" aria-label="How good the rivals are"></div>
       <div id="track-list"></div>
       <button id="track-back" class="plain-button" type="button">Back to the garage</button>
     </div>
 
     <div id="results" class="sheet" hidden>
+      <div id="confetti" aria-hidden="true"></div>
+      <div id="results-art" aria-hidden="true"></div>
       <h2 id="results-title" class="sheet-title">Finish!</h2>
-      <ol id="results-list"></ol>
+      <div id="results-body">
+        <ol id="results-list"></ol>
+        <div id="results-coins">
+          <ul id="results-lines"></ul>
+          <div id="results-total"><span class="coin"></span><span id="results-total-coins">0</span></div>
+          <p id="results-note" hidden></p>
+        </div>
+      </div>
       <div class="sheet-actions">
         <button id="results-again" class="big-button" type="button">Race again</button>
         <button id="results-tracks" class="plain-button" type="button">Change track</button>
         <button id="results-garage" class="plain-button" type="button">Garage</button>
+      </div>
+    </div>
+
+    <!-- Who is driving: shown on a first visit, and from the garage after that. -->
+    <div id="character" class="sheet" hidden>
+      <h2 class="sheet-title">Who is driving?</h2>
+      <div id="character-list" role="radiogroup" aria-label="Driver"></div>
+      <label id="character-name-row">
+        <span>Your name</span>
+        <input id="character-name" type="text" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Player" />
+      </label>
+      <button id="character-done" class="big-button" type="button">Let's go</button>
+    </div>
+
+    <!-- Loading: while the tracks are photographed on a first visit, and
+         while a track is built before a race. -->
+    <div id="loading" hidden>
+      <div id="loading-art"></div>
+      <div id="loading-panel">
+        <div id="loading-wheel" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="27" fill="#22252d" />
+            <circle cx="32" cy="32" r="16" fill="#c7d0de" />
+            <circle cx="32" cy="32" r="5" fill="#22252d" />
+            <path d="M32 18v10M32 36v10M18 32h10M36 32h10" stroke="#22252d" stroke-width="4" stroke-linecap="round" />
+            <path d="M32 5v6M32 53v6M5 32h6M53 32h6M13 13l4 4M47 47l4 4M51 13l-4 4M17 47l-4 4" stroke="#3a3f4b" stroke-width="5" stroke-linecap="round" />
+          </svg>
+        </div>
+        <h2 id="loading-title">Loading</h2>
+        <p id="loading-text"></p>
+        <div id="loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="loading-fill"></div></div>
+        <p id="loading-tip"></p>
       </div>
     </div>
 

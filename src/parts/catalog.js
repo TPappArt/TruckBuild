@@ -5,6 +5,7 @@ import { WHEELS } from './wheels.js';
 
 // Everything the player can choose from in the build phase, in tab order.
 // A build is one part id per category (or null where `optional`), plus paint.
+// Parts are bought with coins won in races (see profile.js).
 export const CATEGORIES = [
   { id: 'wheels', name: 'Wheels', optional: false, parts: WHEELS },
   { id: 'body', name: 'Body', optional: false, parts: BODIES },
@@ -21,11 +22,49 @@ export const PAINTS = [
   { name: 'White', hex: '#f4f6fb' },
 ];
 
+// What each part costs, in coins. Parts at 0 are the ones every player
+// starts with: enough to build a whole vehicle, weapon included, so there
+// is a way to earn coins from the first race.
+const PRICES = {
+  'kart-wheels': 0,
+  'monster-wheels': 150,
+  'spider-legs': 220,
+  'tank-treads': 260,
+  'mech-legs': 340,
+
+  kart: 0,
+  pickup: 120,
+  bug: 160,
+  bulldog: 220,
+  tub: 280,
+
+  spoiler: 60,
+  'shark-fin': 80,
+  'side-pipes': 120,
+  'glider-wings': 180,
+  booster: 260,
+
+  blaster: 0,
+  flipper: 140,
+  hammer: 200,
+  'buzz-saw': 240,
+  cannon: 300,
+};
+
+export const priceOf = (part) => PRICES[part.id] ?? 0;
+
+/** The parts a new player owns, as 'category/part' keys. */
+export const STARTER_PARTS = CATEGORIES.flatMap((category) =>
+  category.parts.filter((part) => priceOf(part) === 0).map((part) => `${category.id}/${part.id}`),
+);
+
+export const partKey = (categoryId, partId) => `${categoryId}/${partId}`;
+
 export const DEFAULT_BUILD = {
   wheels: 'kart-wheels',
-  body: 'pickup',
-  extra: 'spoiler',
-  weapon: 'cannon',
+  body: 'kart',
+  extra: null,
+  weapon: 'blaster',
   paint: PAINTS[0].hex,
 };
 
@@ -34,23 +73,30 @@ export function findPart(categoryId, partId) {
   return category?.parts.find((part) => part.id === partId) ?? null;
 }
 
-/** Returns a copy of `build` with anything missing or unknown replaced by defaults. */
-export function sanitizeBuild(build) {
+/**
+ * Returns a copy of `build` with anything missing or unknown replaced by
+ * defaults. With `owns(categoryId, partId)`, parts the player does not own
+ * are replaced too.
+ */
+export function sanitizeBuild(build, owns = () => true) {
   const clean = { ...DEFAULT_BUILD };
   for (const category of CATEGORIES) {
     const value = build?.[category.id];
-    if (findPart(category.id, value)) clean[category.id] = value;
+    if (findPart(category.id, value) && owns(category.id, value)) clean[category.id] = value;
     else if (category.optional && value === null) clean[category.id] = null;
   }
   if (PAINTS.some((paint) => paint.hex === build?.paint)) clean.paint = build.paint;
   return clean;
 }
 
-export function randomBuild() {
+/** A random build. With `owns`, only from parts the player has. */
+export function randomBuild(owns = () => true) {
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
   const build = { paint: pick(PAINTS).hex };
   for (const category of CATEGORIES) {
-    build[category.id] = pick(category.parts).id;
+    const choices = category.parts.filter((part) => owns(category.id, part.id)).map((part) => part.id);
+    if (category.optional) choices.push(null);
+    build[category.id] = choices.length ? pick(choices) : null;
   }
   return build;
 }

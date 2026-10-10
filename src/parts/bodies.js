@@ -12,6 +12,10 @@ import { kit, taperBottom, taperTop } from './kit.js';
 //   rearTop  spoilers and fins, at the top of the tail
 //   rear     things bolted to the back (booster)
 //   side     the +x (left) side; side parts are mirrored onto the other
+//
+// Every body carries a colour line: a stripe, a waistband, a roundel. They
+// are cheap. A stripe down both flanks is one thin slab a finger wider than
+// the body, so that only its two edges show.
 
 function kart() {
   const k = kit();
@@ -23,9 +27,13 @@ function kart() {
       p[0] *= 1 - 0.4 * (p[2] / 0.9 + 0.5); // narrow toward the nose
     },
   });
-  k.box('dark', [0.52, 0.5, 0.16], { at: [0, 0.4, -0.28], rot: [-0.2, 0, 0], r: 0.07 });
+  k.slab('dark', [0.52, 0.5, 0.14], { at: [0, 0.4, -0.28], rot: [-0.2, 0, 0] });
   k.box('white', [0.72, 0.3, 0.62], { at: [0, 0.3, -0.72], r: 0.1 });
   k.cyl('dark', { r: 0.15, len: 0.05, seg: 6, axis: 'z' }, { at: [0, 0.4, 0.42], rot: [0.5, 0, 0] });
+  // A stripe down the nose, a line along each flank, and a number roundel.
+  k.slab('white', [0.2, 0.03, 0.84], { at: [0, 0.172, 1.1] });
+  k.slab('white', [1.02, 0.06, 1.7], { at: [0, 0.08, -0.1] });
+  k.disc('accent', { r: 0.2, seg: 8, axis: 'y' }, { at: [0, 0.456, -0.72] });
   return k.node;
 }
 
@@ -35,11 +43,15 @@ function pickup() {
   // Cab: a glass greenhouse with a painted roof.
   k.box('glass', [1.14, 0.42, 0.95], { at: [0, 0.74, 0.2], r: 0.1, deform: taperTop(0.42, 0.88, 0.72, -0.06) });
   k.box('paint', [1.04, 0.1, 0.74], { at: [0, 0.97, 0.14], r: 0.05 });
-  k.box('metal', [1.36, 0.16, 0.2], { at: [0, 0.12, 1.3], r: 0.07 });
+  k.slab('metal', [1.36, 0.16, 0.2], { at: [0, 0.12, 1.3] });
   for (const side of [1, -1]) {
     k.disc('light', { r: 0.11, axis: 'z' }, { at: [side * 0.42, 0.38, 1.305] });
   }
   k.quad('dark', [1.06, 1.0], { at: [0, 0.555, -0.72] });
+  // A line along each flank, a stripe up the bonnet and a bar of tail light.
+  k.slab('white', [1.32, 0.07, 2.36], { at: [0, 0.34, 0] });
+  k.slab('white', [0.3, 0.03, 0.62], { at: [0, 0.548, 0.92] });
+  k.slab('red', [1.06, 0.09, 0.04], { at: [0, 0.42, -1.3] });
   return k.node;
 }
 
@@ -50,9 +62,12 @@ function bulldog() {
   k.box('paint', [1.56, 0.3, 2.3], { at: [0, 0.5, -0.05], r: 0.12, deform: taperTop(0.3, 0.82, 0.8) });
   k.cyl('dark', { r: 0.2, len: 0.08, caps: 'start', axis: 'y' }, { at: [0.36, 0.67, 0.5] });
   for (const side of [1, -1]) {
-    k.ball('light', { r: 0.1, seg: 6, rings: 3 }, { at: [side * 0.5, 0.66, 0.78] });
+    k.lathe('light', [[0, 0.12], [0.11, 0]], { seg: 6, axis: 'y' }, { at: [side * 0.5, 0.62, 0.78] });
     k.cyl('metal', { r: 0.07, len: 0.45, seg: 6, caps: 'start', axis: 'y' }, { at: [side * 0.5, 0.8, -0.9] });
   }
+  // A band round the deck and a warning bar across the nose.
+  k.slab('white', [1.5, 0.07, 2.0], { at: [0, 0.44, -0.05] });
+  k.slab('accent', [1.08, 0.1, 0.05], { at: [0, 0.3, 1.34] });
   return k.node;
 }
 
@@ -61,9 +76,11 @@ function bug() {
   k.ball('paint', { r: 1, seg: 10, rings: 6, squash: [0.76, 0.56, 1.22] }, { at: [0, 0.38, 0] });
   k.dome('glass', { r: 1, seg: 8, rings: 3, squash: [0.52, 0.42, 0.56] }, { at: [0, 0.72, 0.08] });
   for (const side of [1, -1]) {
-    k.ball('light', { r: 0.14, seg: 6, rings: 3 }, { at: [side * 0.4, 0.6, 0.92] });
+    k.lathe('light', [[0, 0.07], [0.15, 0]], { seg: 6, axis: 'z' }, { at: [side * 0.4, 0.58, 0.93], rot: [-0.5, side * 0.35, 0] });
   }
   k.slab('metal', [0.9, 0.08, 0.1], { at: [0, 0.1, 1.12] });
+  // A waistband all the way round: a hoop a touch bigger than the shell.
+  k.cyl('white', { r: 1, len: 0.09, seg: 10, caps: 'none', axis: 'y' }, { at: [0, 0.38, 0], scale: [0.775, 1, 1.24] });
   return k.node;
 }
 
@@ -72,6 +89,8 @@ function tub() {
   k.box('paint', [1.2, 0.62, 2.3], { at: [0, 0.36, 0], r: 0.16, deform: taperBottom(0.62, 0.78, 0.84) });
   k.box('white', [1.34, 0.12, 2.44], { at: [0, 0.7, 0], r: 0.06 });
   k.quad('glass', [1.1, 2.2], { at: [0, 0.765, 0] });
+  // A waterline round the outside.
+  k.slab('accent', [1.15, 0.07, 2.0], { at: [0, 0.5, 0] });
   // Tap on one rim.
   k.cyl('metal', { r: 0.06, len: 0.32, seg: 6, caps: 'start', axis: 'y' }, { at: [-0.56, 0.92, 0.35] });
   k.cyl('metal', { r: 0.05, len: 0.3, seg: 6, caps: 'start' }, { at: [-0.42, 1.04, 0.35] });

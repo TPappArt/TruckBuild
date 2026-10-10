@@ -1,5 +1,8 @@
 import { linear, setPaint } from '../engine/materials.js';
+import { identity, lookAt, multiply, perspective } from '../engine/math.js';
 import { Node } from '../engine/node.js';
+import { locate } from './car.js';
+import { PASS, PYRAMID } from './features.js';
 import {
   bangGeometry,
   boltGeometry,
@@ -7,23 +10,27 @@ import {
   boostGeometry,
   checkpointLamp,
   checkpointLine,
-  FLAKE_HEIGHT,
-  FLAKE_TILE,
-  flakeGeometry,
+  coinsGeometry,
   freezeGeometry,
   haloGeometry,
   holeGeometry,
   ITEM_HALOS,
   ITEM_RINGS,
+  meteorGeometry,
+  MOTE_HEIGHT,
+  MOTE_TILE,
+  moteGeometry,
   mummyGeometry,
   oilGeometry,
   ringGeometry,
   shotGeometry,
+  skeletonGeometry,
   slowGeometry,
   stripGeometry,
   trampolineGeometry,
+  werewolfGeometry,
+  zombieGeometry,
 } from './props.js';
-import { PYRAMID, SNOWBALLS } from './features.js';
 import { createSession } from './session.js';
 import { curtainGeometry, pillarGeometry, snowballGeometry } from './setpieces.js';
 import { buildRaceVehicle } from './vehicle.js';
@@ -32,22 +39,9 @@ import { buildWorld, CHECKPOINT_HEIGHT, checkpointSpan } from './world.js';
 // The 3D side of a race: builds the world for a track, runs a session on it,
 // draws everything that happens and follows the player with a chase camera.
 
-const worlds = new Map();
-
-function worldFor(theme) {
-  // Building a world takes a moment, so each track is built once and kept.
-  if (!worlds.has(theme.id)) {
-    const world = buildWorld(theme);
-    const length = Math.hypot(...theme.light);
-    world.light = theme.light.map((value) => value / length);
-    world.fogColor = linear(theme.fog.color);
-    worlds.set(theme.id, world);
-  }
-  return worlds.get(theme.id);
-}
-
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const BANG_TIME = 0.45;
+const KEEP_WORLDS = 2; // tracks kept built, so "race again" is instant
 
 const ITEM_GEOMETRY = {
   boost: boostGeometry,
@@ -55,7 +49,10 @@ const ITEM_GEOMETRY = {
   bomb: bombGeometry,
   trampoline: trampolineGeometry,
   freeze: freezeGeometry,
+  coins: coinsGeometry,
 };
+// Pickups that hang in the air and turn, rather than sitting on the road.
+const FLOATS = new Set(['boost', 'freeze', 'coins']);
 
 function mesh(geometry) {
   const node = new Node();
@@ -94,6 +91,28 @@ export function createRaceScene(renderer, view) {
   let vehicles = [];
   let time = 0;
 
+  // Built tracks, most recently used last. Building one takes a moment, so
+  // a couple are kept; older ones are let go to save memory on phones.
+  const worlds = new Map();
+  function worldFor(theme) {
+    let built = worlds.get(theme.id);
+    if (built) {
+      worlds.delete(theme.id);
+    } else {
+      built = buildWorld(theme);
+      const length = Math.hypot(...theme.light);
+      built.light = theme.light.map((value) => value / length);
+      built.fogColor = linear(theme.fog.color);
+    }
+    worlds.set(theme.id, built);
+    while (worlds.size > KEEP_WORLDS) {
+      const [oldest, gone] = worlds.entries().next().value;
+      worlds.delete(oldest);
+      for (const node of [gone.ground, gone.scenery, gone.sky]) renderer.release(node);
+    }
+    return built;
+  }
+
   // Track events: things standing on the road, and things painted on it.
   let props = []; // [{ item, node, ring }]
   let strips = []; // [{ strip, node, fast, slow }]
@@ -101,13 +120,14 @@ export function createRaceScene(renderer, view) {
   let fixedGround = []; // the track's own ground, then strips and checkpoint lines
 
   // Everything short-lived is drawn from pools, rebuilt every frame.
-  const solidPool = createPool(); // bangs, shots, bolts, the mummy
+  const solidPool = createPool(); // bangs, shots, bolts
   const castPool = createPool(); // as solidPool, for things big enough to want a shadow
   const paintPool = createPool(); // rings, slicks, holes: flat on the road
   const glowPool = createPool(); // halos
-  const flakePool = createPool();
+  const motePool = createPool(); // whatever is in the air
   const ground = new Node();
-  const drift = [0, 0, 0]; // how far the snow has blown and fallen
+  const drift = [0, 0, 0]; // how far the air has moved: x, down, z
+  const mistDrift = [0, 0];
 
   const camera = { eye: [0, 5, -10], target: [0, 1, 0], fov: 1, near: 0.5, far: 520 };
   let cameraHeading = 0;
@@ -115,8 +135,9 @@ export function createRaceScene(renderer, view) {
   /**
    * Starts a race.
    * drivers: [{ name, build, isPlayer, lane, pace, attack, ... }] in grid order.
+   * rules:   how the rivals behave, from the difficulty (see grid.js).
    */
-  function start({ theme, drivers, laps }) {
+  function start({ theme, drivers, laps, rules }) {
     world = worldFor(theme);
     session = createSession({
       track: world.track,
@@ -125,8 +146,14 @@ export function createRaceScene(renderer, view) {
       feature: theme.feature,
       laps,
       drivers,
+      rules,
     });
-    vehicles = session.racers.map((racer) => buildRaceVehicle(racer.build));
+    vehicles = session.racers.map((racer) => {
+      const vehicle = buildRaceVehicle(racer.build);
+      // How tall it stands, for hanging its nameplate over it.
+      vehicle.height = vehicle.node.worldBounds().max[1];
+      return vehicle;
+    });
 
     // Baking borrowed the shared paint material; hand it back to the player.
     const player = session.player;
@@ -163,6 +190,7 @@ export function createRaceScene(renderer, view) {
     time = 0;
     cameraHeading = (player || session.racers[0]).car.heading;
     place(0);
+    chase(0, true);
     return session;
   }
 
@@ -207,7 +235,7 @@ export function createRaceScene(renderer, view) {
 
       if (item.kind === 'oil') {
         paintPool.take(oilGeometry(), item.x, 0, item.z, 1, item.heading);
-      } else if (item.kind === 'boost' || item.kind === 'freeze') {
+      } else if (FLOATS.has(item.kind)) {
         node.position = [item.x, 1.7 + 0.2 * Math.sin(time * 3 + i), item.z];
         node.rotation[1] = time * 2.6 + i;
       } else if (item.kind === 'slow') {
@@ -240,75 +268,91 @@ export function createRaceScene(renderer, view) {
       const age = (session.time - bang.at) / BANG_TIME;
       if (age < 0 || age >= 1) continue;
       solidPool.take(bangGeometry(bang.kind), bang.x, 1.6, bang.z, 0.7 + age * 1.7);
-      if (bang.kind !== 'dust') glowPool.take(haloGeometry(bang.kind === 'spark' ? 'spark' : 'fire'), bang.x, 1.6, bang.z, 3 + age * 3);
+      const halo = { spark: 'spark', blast: 'fire', slime: 'slime' }[bang.kind];
+      if (halo) glowPool.take(haloGeometry(halo), bang.x, 1.6, bang.z, 3 + age * 3);
     }
 
-    placeHazard(dt);
+    placeHazard();
     placeFeature();
+    placeAir(dt);
 
     ground.children = [...fixedGround, ...paintPool.active];
     ground.updateWorld();
   }
 
   /** Draws the track's own hazard, if it has one. */
-  function placeHazard(dt) {
+  function placeHazard() {
     const hazard = session.hazard;
-    flakePool.reset();
     if (!hazard) return;
 
-    if (hazard.kind === 'mummy' && hazard.active) {
+    if (hazard.kind === 'mummy') {
       const { rise, swing, sink } = hazard.timings;
-      const age = hazard.age;
-      // Up out of the ground, a lunge forward, then back down.
-      const up = age < rise ? age / rise : age < rise + swing ? 1 : 1 - (age - rise - swing) / sink;
-      const lunge = age >= rise && age < rise + swing ? Math.sin((Math.PI * (age - rise)) / swing) : 0;
-      const node = solidPool.take(mummyGeometry(), hazard.x, -3.6 * (1 - Math.max(0, up)), hazard.z, 1.15, hazard.heading);
-      node.rotation[0] = lunge * 0.8;
-      node.updateWorld();
-      paintPool.take(holeGeometry(), hazard.x, 0, hazard.z);
-      glowPool.take(haloGeometry('bad'), hazard.x, 1.6, hazard.z, 2.8);
+      for (const mummy of hazard.mummies) {
+        const age = mummy.age;
+        // Up out of the ground, a lunge forward, then back down.
+        const up = age < rise ? age / rise : age < rise + swing ? 1 : 1 - (age - rise - swing) / sink;
+        const lunge = age >= rise && age < rise + swing ? Math.sin((Math.PI * (age - rise)) / swing) : 0;
+        const node = castPool.take(mummyGeometry(), mummy.x, -3.6 * (1 - Math.max(0, up)), mummy.z, 1.15, mummy.heading);
+        node.rotation[0] = lunge * 0.8;
+        node.updateWorld();
+        paintPool.take(holeGeometry(), mummy.x, 0, mummy.z);
+        glowPool.take(haloGeometry('bad'), mummy.x, 1.6, mummy.z, 2.8);
+      }
     }
 
-    if (hazard.kind === 'lightning') {
-      const { warning } = hazard.timings;
+    if (hazard.kind === 'lightning' || hazard.kind === 'meteor') {
+      const { warning, flash } = hazard.timings;
+      const falling = hazard.kind === 'meteor';
       for (const strike of hazard.strikes) {
-        if (strike.age < warning) {
+        const coming = strike.age < warning;
+        if (coming && !strike.harmless) {
           // A ring that closes in on the spot as the strike gets nearer.
           const closing = 1.7 - 0.7 * (strike.age / warning);
-          paintPool.take(ringGeometry('spark', 2.6, 3.4), strike.x, 0, strike.z, closing);
-          glowPool.take(haloGeometry('spark'), strike.x, 0.4, strike.z, [3.4, 1.2, 3.4]);
-        } else {
+          paintPool.take(ringGeometry(falling ? 'bad' : 'spark', 2.6, 3.4), strike.x, 0, strike.z, closing);
+          glowPool.take(haloGeometry(falling ? 'bad' : 'spark'), strike.x, 0.4, strike.z, [3.4, 1.2, 3.4]);
+        }
+        if (falling) {
+          if (coming) {
+            // Down out of the sky on a slant, trailing fire.
+            const left = 1 - strike.age / warning;
+            const slant = Math.cos(strike.seed) * 26 * left;
+            const node = solidPool.take(meteorGeometry(), strike.x + slant, 1 + 70 * left, strike.z + Math.sin(strike.seed) * 26 * left, 1.5, strike.seed);
+            node.rotation[0] = 0.35;
+            node.updateWorld();
+            glowPool.take(haloGeometry('fire'), node.position[0], node.position[1], node.position[2], 4);
+          } else if (strike.harmless) {
+            const age = (strike.age - warning) / flash;
+            solidPool.take(bangGeometry('blast'), strike.x, 1.4, strike.z, 1 + age * 3);
+            glowPool.take(haloGeometry('fire'), strike.x, 1.6, strike.z, 5 + age * 4);
+          }
+        } else if (!coming) {
           solidPool.take(boltGeometry(), strike.x, 0, strike.z, 1, strike.seed);
           glowPool.take(haloGeometry('spark'), strike.x, 2, strike.z, 9);
         }
       }
     }
 
-    if (hazard.kind === 'storm') {
-      // Snow always falls here; in a storm it is driven sideways, hard.
-      const wind = 3 + 34 * hazard.strength;
-      drift[0] += hazard.windX * wind * dt;
-      drift[1] += (3.5 + 3 * hazard.strength) * dt;
-      drift[2] += hazard.windZ * wind * dt;
-
-      // The flakes are a block that repeats in every direction. Draw the
-      // four copies nearest the camera, sliding with the wind.
-      const eye = camera.eye;
-      const fall = drift[1] % FLAKE_HEIGHT;
-      const nearest = (value) => {
-        const cell = (value + FLAKE_TILE / 2) / FLAKE_TILE;
-        const base = Math.floor(cell);
-        return cell - base < 0.5 ? [base - 1, base] : [base, base + 1];
-      };
-      for (const i of nearest(eye[0] - drift[0])) {
-        for (const j of nearest(eye[2] - drift[2])) {
-          flakePool.take(flakeGeometry(), i * FLAKE_TILE + drift[0], -fall, j * FLAKE_TILE + drift[2]);
+    if (hazard.kind === 'werewolf') {
+      const track = world.track;
+      for (const wolf of hazard.wolves) {
+        if (!wolf.running) {
+          // Crouched at the roadside. Rings across the road show its line.
+          for (const across of [-10, 0, 10]) {
+            const p = track.pointAt(wolf.index, across);
+            paintPool.take(ringGeometry('bad', 1.3, 1.9), p.x, 0, p.z, 1 + 0.2 * Math.sin(time * 16 + across));
+          }
+          glowPool.take(haloGeometry('bad'), wolf.x, 1.4, wolf.z, 3.2);
         }
+        // Bounding: up and down, nose rising and falling with it.
+        const bound = wolf.running ? Math.abs(Math.sin(wolf.age * 9)) : 0;
+        const node = castPool.take(werewolfGeometry(), wolf.x, bound * 1.1, wolf.z, 1.35, wolf.heading);
+        node.rotation[0] = wolf.running ? Math.cos(wolf.age * 9) * 0.3 : 0.25;
+        node.updateWorld();
       }
     }
   }
 
-  /** Draws the moving parts of the track's set piece. */
+  /** Draws the moving parts of the track's landmark. */
   function placeFeature() {
     const feature = session.feature;
     if (!feature) return;
@@ -327,7 +371,7 @@ export function createRaceScene(renderer, view) {
       }
     }
 
-    if (feature.kind === 'arcs') {
+    if (feature.kind === 'bridge') {
       const curtain = curtainGeometry(world.track);
       const reach = world.track.limit / 2;
       for (const gate of feature.gates) {
@@ -342,26 +386,90 @@ export function createRaceScene(renderer, view) {
       }
     }
 
-    if (feature.kind === 'snowballs') {
+    if (feature.kind === 'pass') {
       for (const lane of feature.lanes) {
         if (!lane.rolling) continue;
-        const ball = castPool.take(snowballGeometry(), lane.x, SNOWBALLS.radius, lane.z, SNOWBALLS.radius);
+        const ball = castPool.take(snowballGeometry(), lane.x, PASS.radius, lane.z, PASS.radius);
         ball.rotation = [0, lane.heading, lane.direction * lane.turned];
         ball.updateWorld();
       }
     }
+
+    if (feature.kind === 'graveyard') {
+      feature.graves.forEach((grave, i) => {
+        if (grave.phase === 'warn') {
+          const throb = 1 + 0.15 * Math.sin(time * 18);
+          paintPool.take(ringGeometry('bad', 1.5, 2.3), grave.x, 0, grave.z, throb);
+          glowPool.take(haloGeometry('bad'), grave.x, 0.3, grave.z, [2.8, 1, 2.8]);
+        }
+        if (grave.height <= 0) return;
+        // Up out of the grave, then swaying on the spot with its arms up.
+        const node = castPool.take(skeletonGeometry(), grave.x, -3.6 * (1 - grave.height), grave.z, 1.3, grave.heading + 0.3 * Math.sin(time * 5 + i));
+        node.rotation[2] = 0.12 * Math.sin(time * 7 + i);
+        node.updateWorld();
+      });
+    }
+
+    if (feature.kind === 'street') {
+      feature.zombies.forEach((zombie, i) => {
+        if (zombie.phase === 'away') return;
+        const shape = zombieGeometry(i % 3);
+        if (zombie.phase === 'flung') {
+          // Head over heels through the air.
+          const t = zombie.flight;
+          const node = castPool.take(shape, zombie.x, 0.4 + 22 * t * (1 - t), zombie.z, 1.2, zombie.heading);
+          node.rotation[0] = t * 14;
+          node.updateWorld();
+          return;
+        }
+        const node = castPool.take(shape, zombie.x, 0, zombie.z, 1.2, zombie.heading);
+        node.rotation[2] = 0.14 * Math.sin(time * zombie.speed * 2.4 + zombie.sway);
+        node.updateWorld();
+        paintPool.take(ringGeometry('bad', 0.9, 1.25), zombie.x, 0, zombie.z);
+      });
+    }
   }
 
-  function update(dt, input) {
-    if (!session) return;
-    time += dt;
-    session.update(dt, input);
-    place(session.phase === 'countdown' ? 0 : dt);
+  /** Whatever hangs in the air on this track: snow, dust, sparks, ash. */
+  function placeAir(dt) {
+    motePool.reset();
+    const air = world.theme.air;
+    if (!air) return;
 
-    // Chase camera: swings round behind the car a beat after it turns, and
-    // rises with it when it leaves the ground.
+    // A snowstorm drives it sideways, hard.
+    const storm = session.hazard?.kind === 'storm' ? session.hazard : null;
+    const gust = storm ? storm.strength : 0;
+    drift[0] += (air.wind[0] + (storm ? storm.windX * 34 * gust : 0)) * dt;
+    drift[1] += (air.fall + 3 * gust) * dt;
+    drift[2] += (air.wind[1] + (storm ? storm.windZ * 34 * gust : 0)) * dt;
+
+    // The specks are a block that repeats in every direction. Draw the
+    // four copies nearest the camera, sliding with the wind.
+    const eye = camera.eye;
+    const fall = ((drift[1] % MOTE_HEIGHT) + MOTE_HEIGHT) % MOTE_HEIGHT;
+    const nearest = (value) => {
+      const cell = (value + MOTE_TILE / 2) / MOTE_TILE;
+      const base = Math.floor(cell);
+      return cell - base < 0.5 ? [base - 1, base] : [base, base + 1];
+    };
+    const specks = moteGeometry(world.theme.id, air);
+    for (const i of nearest(eye[0] - drift[0])) {
+      for (const j of nearest(eye[2] - drift[2])) {
+        motePool.take(specks, i * MOTE_TILE + drift[0], -fall, j * MOTE_TILE + drift[2]);
+      }
+    }
+
+    const mist = world.theme.mist;
+    if (mist) {
+      mistDrift[0] = (mistDrift[0] + mist.drift[0] * dt) % 1;
+      mistDrift[1] = (mistDrift[1] + mist.drift[1] * dt) % 1;
+    }
+  }
+
+  /** Chase camera: swings round behind the car a beat after it turns, and rises with it when it leaves the ground. */
+  function chase(dt, snap = false) {
     const car = (session.player || session.racers[0]).car;
-    cameraHeading += wrapAngle(car.heading - cameraHeading) * (1 - Math.exp(-dt * 5));
+    cameraHeading += wrapAngle(car.heading - cameraHeading) * (snap ? 1 : 1 - Math.exp(-dt * 5));
     const speed = Math.min(1.5, Math.abs(car.speed) / car.maxSpeed);
     const fx = Math.sin(cameraHeading);
     const fz = Math.cos(cameraHeading);
@@ -376,39 +484,146 @@ export function createRaceScene(renderer, view) {
     camera.fov = aspect >= 1.3 ? 0.92 + speed * 0.1 : Math.min(1.5, 2 * Math.atan(Math.tan(wide / 2) / aspect));
   }
 
-  function render() {
+  function update(dt, input) {
     if (!session) return;
-    renderer.setSize(view.width, view.height, view.pixelRatio);
+    time += dt;
+    session.update(dt, input);
+    place(session.phase === 'countdown' ? 0 : dt);
+    chase(dt);
+  }
+
+  function draw() {
     const theme = world.theme;
     const cars = vehicles.map((vehicle) => vehicle.node);
     const standing = props.filter((entry) => entry.item.active && entry.node).map((entry) => entry.node);
 
-    // A snowstorm closes the view in; lightning lights everything up.
+    // A snowstorm closes the view in; a strike nearby lights everything up.
     const hazard = session.hazard;
     const storm = hazard?.kind === 'storm' ? hazard.strength : 0;
-    const flash = hazard?.kind === 'lightning' && hazard.strikes.some((strike) => strike.age >= hazard.timings.warning) ? 1.6 : 1;
+    let flash = 1;
+    if (hazard?.kind === 'lightning') {
+      for (const strike of hazard.strikes) {
+        if (strike.age < hazard.timings.warning) continue;
+        const away = Math.hypot(strike.x - camera.eye[0], strike.z - camera.eye[2]);
+        flash = Math.max(flash, 1 + 0.6 * Math.max(0, 1 - away / 170));
+      }
+    }
+    const mist = theme.mist;
 
     renderer.render({
       camera,
       light: world.light,
       lighting: theme.lighting,
-      fog: { color: world.fogColor, density: theme.fog.density * (1 + 2.2 * storm) },
+      fog: { color: world.fogColor, density: theme.fog.density * (1 + 1.5 * storm) },
+      mist: mist ? { strength: mist.strength, scale: mist.scale, offset: mistDrift } : null,
+      grain: theme.grain ?? 0,
       pulse: (theme.pulse ? theme.pulse(time) : 1) * flash,
       sky: world.sky,
       ground,
-      solids: [world.scenery, ...cars, ...standing, ...castPool.active, ...solidPool.active, ...flakePool.active],
+      solids: [world.scenery, ...cars, ...standing, ...castPool.active, ...solidPool.active, ...motePool.active],
       casters: [...cars, ...standing, ...castPool.active, world.scenery],
       shadow: { strength: theme.shadow },
       glows: glowPool.active,
     });
   }
 
+  function render() {
+    if (!session) return;
+    renderer.setSize(view.width, view.height, view.pixelRatio);
+    draw();
+  }
+
+  // ---------- Nameplates ----------
+
+  const viewMatrix = identity();
+  const projection = identity();
+  const viewProjection = identity();
+
+  /**
+   * Where each racer's nameplate goes on screen, in CSS pixels, in the
+   * order of session.racers: [{ x, y, scale, visible }]. `scale` shrinks
+   * with distance.
+   */
+  function plates(out = []) {
+    if (!session) return out;
+    perspective(projection, camera.fov, view.width / view.height, camera.near, camera.far);
+    lookAt(viewMatrix, camera.eye, camera.target);
+    multiply(viewProjection, projection, viewMatrix);
+    const m = viewProjection;
+    session.racers.forEach((racer, i) => {
+      const car = racer.car;
+      const x = car.x;
+      const y = car.lift + vehicles[i].height + 0.45;
+      const z = car.z;
+      const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+      const plate = (out[i] ??= { x: 0, y: 0, scale: 1, visible: false });
+      plate.visible = w > 2 && w < 150;
+      if (!plate.visible) return;
+      plate.x = ((m[0] * x + m[4] * y + m[8] * z + m[12]) / w * 0.5 + 0.5) * view.width;
+      plate.y = (0.5 - ((m[1] * x + m[5] * y + m[9] * z + m[13]) / w) * 0.5) * view.height;
+      plate.scale = Math.min(1, Math.max(0.5, 16 / w));
+    });
+    return out;
+  }
+
+  // ---------- Pictures of the tracks ----------
+
+  /**
+   * Takes a picture of a track's landmark with a pack of cars going
+   * through it, for the track picker. Returns a JPEG data URL.
+   *
+   * The picture is drawn on the game's own canvas and read straight back,
+   * so the caller must draw its own frame again before the browser next
+   * paints. No race may be running.
+   */
+  function snapshot({ theme, drivers, rules, width, height, shot = theme.cinematic }) {
+    start({ theme, drivers: drivers.map((driver) => ({ ...driver, auto: true })), laps: 9, rules });
+    const { track, site } = world;
+    const fx = Math.sin(site.heading);
+    const fz = Math.cos(site.heading);
+    // [metres right of the road, metres along it, metres up] at the landmark.
+    const local = ([across, out, up]) => [site.x - fz * across + fx * out, up, site.z + fx * across + fz * out];
+
+    // Put the cars on the road coming through, and let things happen for a
+    // second or two so the place is in full swing.
+    session.phase = 'racing';
+    session.racers.forEach((racer, i) => {
+      const at = track.pointAt(site.index + shot.cars / track.spacing - i * 3.2, [-7, 5, -1, 9][i % 4]);
+      const car = racer.car;
+      Object.assign(car, { x: at.x, z: at.z, heading: at.heading, speed: 22, vx: Math.sin(at.heading) * 22, vz: Math.cos(at.heading) * 22 });
+      car.index = track.wrap(Math.round(site.index + shot.cars / track.spacing - i * 3.2));
+      locate(car, track);
+      racer.lap = 0;
+    });
+    for (let step = 0; step < 240; step++) session.feature?.update(1 / 60, 0, []);
+    for (let step = 0; step < 75; step++) session.update(1 / 60);
+    time = 3;
+    place(1 / 60);
+
+    // (`world: true` gives the camera in world coordinates instead: handy
+    // for looking at other parts of a track while working on it.)
+    camera.eye = shot.world ? shot.eye : local(shot.eye);
+    camera.target = shot.world ? shot.target : local(shot.target);
+    camera.fov = shot.fov;
+    renderer.setSize(width, height, 1);
+    draw();
+    const image = renderer.canvas.toDataURL('image/jpeg', 0.86);
+    session = null;
+    return image;
+  }
+
   return {
     start,
     update,
     render,
+    plates,
+    snapshot,
     get session() {
       return session;
+    },
+    /** The landmark of the track being raced: see features.js. */
+    get site() {
+      return world?.site ?? null;
     },
   };
 }

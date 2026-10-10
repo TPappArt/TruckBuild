@@ -34,6 +34,7 @@ function cannon() {
   const gun = k.sub({ at: [0, 0.26, 0.1], rot: [-0.14, 0, 0] });
   gun.box('dark', [0.32, 0.26, 0.3], { at: [0, 0, 0.2], r: 0.08 });
   gun.cyl('metal', { r: 0.1, len: 0.8, caps: 'none', axis: 'z' }, { at: [0, 0, 0.7] });
+  gun.cyl('accent', { r: 0.115, len: 0.08, caps: 'none', axis: 'z' }, { at: [0, 0, 0.5] });
   gun.cyl('red', { r: 0.15, len: 0.22, axis: 'z' }, { at: [0, 0, 1.12] });
   gun.disc('dark', { r: 0.08, axis: 'z' }, { at: [0, 0, 1.235] });
   return k.node;
@@ -52,6 +53,8 @@ function flipper() {
     },
   });
   k.slab('dark', [1.3, 0.05, 0.1], { at: [0, -0.34, 1.0] });
+  // Warning stripes up the ramp.
+  for (const x of [-0.36, 0.36]) k.slab('dark', [0.2, 0.03, 0.8], { at: [x, -0.165, 0.55], rot: [0.31, 0, 0] });
   for (const side of [1, -1]) {
     k.cyl('dark', { r: 0.12, len: 0.22 }, { at: [side * 0.42, 0.02, 0.06] });
     k.cyl('metal', { r: 0.045, len: 0.5, seg: 6, caps: 'none', axis: 'z' }, { at: [side * 0.42, 0, 0.3], rot: [0.35, 0, 0] });

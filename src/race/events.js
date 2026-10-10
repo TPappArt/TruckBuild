@@ -9,6 +9,8 @@ import { EFFECTS, knock, launch } from './car.js';
 //              'freeze'      stops every other car dead for a few seconds.
 //                            Only the player can pick it up: rivals drive
 //                            straight through it.
+//              'coins'       a bag of coins to spend in the garage. Rare,
+//                            and also only for the player.
 //   Hazards    'bomb'        tosses the car in the air; it loses its speed
 //              'oil'         takes away grip and steering for a moment
 //   Modifiers  'trampoline'  throws the car a long way down the track
@@ -24,7 +26,7 @@ import { EFFECTS, knock, launch } from './car.js';
 // This file only decides what happens; drawing is in scene.js and props.js.
 
 // Random items. More good things than bad overall, counting the boost rows.
-const COUNTS = { slow: 3, bomb: 3, oil: 3, trampoline: 2, freeze: 2 };
+const COUNTS = { slow: 3, bomb: 3, oil: 3, trampoline: 2, freeze: 2, coins: 1 };
 const STRIPS = 2;
 
 // Boost rows: where around the lap (0..1), and how many across the road.
@@ -32,9 +34,9 @@ const BOOST_ROWS = [0.13, 0.6];
 const BOOSTS_PER_ROW = 5;
 
 // How close a car's centre has to be to set each one off, in metres.
-const REACH = { boost: 2.5, slow: 2.2, bomb: 2.0, oil: 2.6, trampoline: 2.6, freeze: 2.5 };
+const REACH = { boost: 2.5, slow: 2.2, bomb: 2.0, oil: 2.6, trampoline: 2.6, freeze: 2.5, coins: 2.7 };
 
-const RESPAWN = { boost: 4, slow: 5, bomb: 5, freeze: 12 }; // seconds before it reappears
+const RESPAWN = { boost: 4, slow: 5, bomb: 5, freeze: 12, coins: 24 }; // seconds before it reappears
 const OIL_MOVES = [16, 28]; // seconds an oil patch stays put
 const STRIP_FLIPS = [6, 12]; // seconds a strip stays fast or slow
 const STRIP_LENGTH = 44; // metres
@@ -176,6 +178,10 @@ export function createEvents(track, random, bang = () => {}, keepOut = []) {
           for (const other of racers) {
             if (other !== racer) other.car.effects.frozen = EFFECTS.freeze.time;
           }
+          take(item);
+        } else if (item.kind === 'coins') {
+          if (!racer.isPlayer) continue;
+          racer.bags = (racer.bags ?? 0) + 1;
           take(item);
         } else if (item.kind === 'bomb') {
           if (!knock(car)) continue; // still recovering from the last knock

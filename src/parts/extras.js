@@ -21,6 +21,8 @@ function spoiler() {
     );
   }
   k.box('paint', [1.5, 0.08, 0.44], { at: [0, 0.44, -0.1], rot: [0.12, 0, 0], r: 0.04 });
+  // A stripe across the middle of the wing.
+  k.slab('white', [0.34, 0.09, 0.45], { at: [0, 0.44, -0.1], rot: [0.12, 0, 0] });
   return k.node;
 }
 
@@ -40,6 +42,8 @@ function gliderWing() {
     { depth: 0.06, axis: 'x' },
     { at: [1.27, 0.04, 0] },
   );
+  // A stripe along the wing, standing proud on both faces.
+  wing.slab('paint', [0.9, 0.1, 0.1], { at: [0.55, 0, 0.08] });
   wing.cyl('metal', { r: 0.11, len: 0.45, axis: 'z' }, { at: [0.6, -0.1, 0] });
   wing.lathe('red', [[0, 0.14], [0.08, 0]], { seg: 6, axis: 'z' }, { at: [0.6, -0.1, 0.225] });
   return k.node;
@@ -56,6 +60,7 @@ function booster() {
     { at: [0, y, 0] },
   );
   k.cyl('red', { r: 0.26, len: 0.12, seg: 10, caps: 'none', axis: 'z' }, { at: [0, y, -0.36] });
+  k.cyl('accent', { r: 0.258, len: 0.05, seg: 10, caps: 'none', axis: 'z' }, { at: [0, y, -0.56] });
   // Nozzle bell with a glowing throat.
   k.lathe('dark', [[0.15, -0.72], [0.23, -0.94]], { seg: 10, axis: 'z' }, { at: [0, y, 0] });
   k.lathe('hot', [[0.21, -0.9], [0, -0.86]], { seg: 10, axis: 'z' }, { at: [0, y, 0] });
@@ -77,6 +82,8 @@ function sharkFin() {
     { depth: 0.14, axis: 'x', smooth: 50 },
     { at: [0, 0.04, 0.1] },
   );
+  // Gills: three slits that show on both sides.
+  for (const z of [0.12, 0.26, 0.4]) k.slab('dark', [0.16, 0.2, 0.03], { at: [0, 0.2, z], rot: [0.5, 0, 0] });
   return k.node;
 }
 
@@ -91,6 +98,8 @@ function sidePipe() {
   for (const z of [-0.45, 0.35]) {
     k.slab('dark', [0.14, 0.06, 0.08], { at: [0.05, 0, z] });
   }
+  // Heat bands.
+  for (const z of [-0.6, 0.2]) k.cyl('accent', { r: 0.09, len: 0.06, caps: 'none', axis: 'z' }, { at: [0.12, 0, z] });
   return k.node;
 }
 
