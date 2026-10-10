@@ -13,8 +13,13 @@ export const TUNING = {
   power: 15, // acceleration at a standstill, fading to zero at top speed
   brake: 30,
   reverseSpeed: 9,
-  turn: 2.3, // rad/s at low speed
-  turnFade: 0.55, // how much of that is lost by top speed
+  turn: 1.75, // rad/s at low speed
+  turnFade: 0.5, // how much of that is lost by top speed
+  // The most a car can point away from the way it is travelling, in
+  // radians. This is what stops it feeling slippery: however hard the
+  // driver steers, the car never gets far sideways. A track's surface can
+  // allow more (surface.slide), as snow does.
+  maxSlide: 0.42,
   steerResponse: 9, // how quickly the wheels follow the input
   radius: 1.35, // collision circle
 };
@@ -28,6 +33,7 @@ export const EFFECTS = {
   zap: { time: 0.85 }, // a lighter knock, from lightning
   strip: { fast: 1.45, slow: 0.5 }, // while on a speed or sticky strip
   flight: { time: 1.5, distance: 70, height: 8 }, // trampoline
+  freeze: { time: 4 }, // freeze pickup: every other car stops dead
 };
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -55,7 +61,7 @@ export function createCar(track, gridIndex, gridOffset) {
     // Track events. Timers count down in seconds; 0 means not in effect.
     // `safe` is a spell of immunity after being knocked, so a car cannot be
     // knocked again before its driver has had a chance to recover.
-    effects: { boost: 0, slow: 0, slip: 0, stun: 0, safe: 0 },
+    effects: { boost: 0, slow: 0, slip: 0, stun: 0, safe: 0, frozen: 0 },
     stunTime: 0, // how long the current knock lasts in all
     zone: 0, // on a strip right now: +1 speed, -1 sticky, 0 neither
     flight: null, // set while a trampoline has the car in the air
@@ -75,6 +81,15 @@ export function createCar(track, gridIndex, gridOffset) {
 export function stepCar(car, input, dt, track, surface) {
   const effects = car.effects;
   for (const name of Object.keys(effects)) effects[name] = Math.max(0, effects[name] - dt);
+
+  // Frozen solid: nothing moves, and nothing can be done about it.
+  if (effects.frozen > 0) {
+    car.vx = 0;
+    car.vz = 0;
+    car.speed = 0;
+    car.hitWall = false;
+    return;
+  }
 
   const stunned = effects.stun > 0;
   if (stunned) input = NO_INPUT;
@@ -118,6 +133,10 @@ export function stepCar(car, input, dt, track, surface) {
   if (stunned) forward *= Math.exp(-5 * dt);
 
   sideways *= Math.exp(-surface.grip * (slipping ? EFFECTS.slip.grip : 1) * dt);
+  if (!slipping) {
+    const most = Math.abs(forward) * Math.tan(surface.slide ?? TUNING.maxSlide) + 1.5;
+    sideways = clamp(sideways, -most, most);
+  }
 
   car.vx = fx * forward + rx * sideways;
   car.vz = fz * forward + rz * sideways;

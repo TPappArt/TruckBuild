@@ -3,6 +3,9 @@ import { ball, facet, pointAlong } from '../engine/geometry.js';
 import { linear, material } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
 import { kit } from '../parts/kit.js';
+import { featureSite } from './features.js';
+import { SECTORS } from './session.js';
+import { buildSetPiece, paintSetPiece, setPieceClearance } from './setpieces.js';
 import { createTrack } from './track.js';
 
 // Turns a track theme (see tracks/) into something to race on and look at:
@@ -151,6 +154,26 @@ function startGate(track, road) {
   return k.node;
 }
 
+/** How far apart the posts of a checkpoint gate stand, either side of the centre line. */
+export const checkpointSpan = (track) => track.halfWidth + 1.4;
+export const CHECKPOINT_HEIGHT = 7;
+
+/**
+ * The frame of a checkpoint gate. The strip of lights under the beam is
+ * drawn by the scene, since it changes as the player goes through.
+ */
+function checkpointGate(track) {
+  const k = kit();
+  const span = checkpointSpan(track);
+  const frame = material('#39404f', { spec: 0.2 });
+  for (const side of [1, -1]) {
+    k.box(frame, [0.7, CHECKPOINT_HEIGHT, 0.7], { at: [side * span, CHECKPOINT_HEIGHT / 2, 0], r: 0.16 });
+    k.box(frame, [1.3, 0.5, 1.3], { at: [side * span, 0.25, 0], r: 0.12 });
+  }
+  k.box(frame, [span * 2 + 1.2, 0.5, 0.6], { at: [0, CHECKPOINT_HEIGHT + 0.2, 0], r: 0.14 });
+  return k.node;
+}
+
 function buildSky(theme) {
   const top = linear(theme.sky.top);
   const horizon = linear(theme.fog.color);
@@ -185,17 +208,26 @@ export function buildWorld(theme) {
   paint.polygon([[-far, -far], [far, -far], [far, far], [-far, far]], theme.ground);
   theme.paintGround?.({ paint, track, random });
   paintRoad(paint, track, theme.road);
+  // The track's set piece, if it has one, and the space it needs.
+  const site = featureSite(theme.feature, track);
+  const clearance = setPieceClearance(site);
+  if (site) paintSetPiece(site, track, paint);
   const ground = paint.finish();
 
   // Scenery: copies of a few prototype props, merged into one mesh at the end.
   const set = new Node();
-  const place = (prop, x, z, { scale = 1, turn = 0, y = 0 } = {}) => {
+  const put = (prop, x, z, { scale = 1, turn = 0, y = 0 } = {}) => {
     const copy = prop.clone();
     copy.position = [x, y, z];
     copy.rotation[1] = turn;
     copy.scale = [scale, scale, scale];
     set.add(copy);
     return copy;
+  };
+  // Ordinary scenery keeps out of the set piece's way.
+  const place = (prop, x, z, options) => {
+    if (site && Math.hypot(x - site.x, z - site.z) < clearance) return null;
+    return put(prop, x, z, options);
   };
 
   const tools = {
@@ -252,9 +284,22 @@ export function buildWorld(theme) {
   const start = track.pointAt(0, 0);
   place(startGate(track, theme.road), start.x, start.z, { turn: start.heading });
 
+  // A checkpoint gate at the end of every sector but the last, which
+  // finishes at the start line.
+  const gate = checkpointGate(track);
+  const checkpoints = [];
+  for (let k = 1; k < SECTORS; k++) {
+    const index = Math.round((track.count * k) / SECTORS);
+    const p = track.pointAt(index, 0);
+    put(gate, p.x, p.z, { turn: p.heading });
+    checkpoints.push({ index, x: p.x, z: p.z, heading: p.heading });
+  }
+
+  if (site) buildSetPiece(site, track, (model, x, z, turn) => put(model, x, z, { turn }));
+
   theme.decorate(tools);
 
   const scenery = bake(set);
 
-  return { theme, track, ground, scenery, sky: buildSky(theme) };
+  return { theme, track, ground, scenery, sky: buildSky(theme), site, checkpoints };
 }

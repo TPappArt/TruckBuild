@@ -1,6 +1,7 @@
 import { autopilot, collide, createCar, locate, speedLimits, stepCar, stepFlight } from './car.js';
 import { createCombat } from './combat.js';
 import { createEvents } from './events.js';
+import { createFeature } from './features.js';
 import { createHazard } from './hazards.js';
 
 // The rules of a race, with no rendering: grid, countdown, laps, positions
@@ -13,6 +14,9 @@ import { createHazard } from './hazards.js';
 const STEP = 1 / 60;
 const COUNTDOWN = 3;
 
+/** Each lap is split into this many sectors, with a checkpoint between each. */
+export const SECTORS = 4;
+
 // Rivals have clumsy moments: every so often one takes its foot off and
 // drifts off line for a second or so. Seconds between them, and how long.
 const LAPSE_EVERY = [5, 11];
@@ -22,17 +26,18 @@ const LAPSE_LASTS = [0.7, 1.5];
  * drivers: [{ name, isPlayer, lane, pace, weave, clumsy, attack }] in grid order (first = pole).
  * surface: { grip, offroad } from the track theme.
  * hazard:  the track's own hazard, by name (see hazards.js), if it has one.
+ * feature: the track's set piece, by name (see features.js), if it has one.
  * random:  source of randomness; pass a seeded one for repeatable races.
  * events:  false to race on an empty road with no hazard.
  */
-export function createSession({ track, surface, hazard, laps = 3, drivers, random = Math.random, events = true }) {
+export function createSession({ track, surface, hazard, feature, laps = 3, drivers, random = Math.random, events = true }) {
   const limits = speedLimits(track, surface);
   const between = ([low, high]) => low + (high - low) * random();
 
   // Two-by-two grid behind the line.
   const racers = drivers.map((driver, slot) => {
     const row = Math.floor(slot / 2);
-    const car = createCar(track, -(3 + row * 4), slot % 2 ? 4.6 : -4.6);
+    const car = createCar(track, -(3 + row * 4), slot % 2 ? 6.5 : -6.5);
     return {
       ...driver,
       car,
@@ -41,6 +46,7 @@ export function createSession({ track, surface, hazard, laps = 3, drivers, rando
       finished: false,
       finishTime: 0,
       place: slot + 1,
+      sector: SECTORS - 1, // which quarter of the lap it is in: 0 to SECTORS - 1
       lastEvent: null, // { kind, at } of the latest track event to hit this racer
 
       // The rival's state of mind, for the computer driver.
@@ -59,13 +65,18 @@ export function createSession({ track, surface, hazard, laps = 3, drivers, rando
     if (bangs.length > 12) bangs.shift();
   };
 
+  // The set piece comes first: everything else keeps clear of it.
+  const setPiece = events && feature ? createFeature(feature, track, random, bang) : null;
+  const keepOut = setPiece ? [{ from: setPiece.site.from - 4, to: setPiece.site.to + 4 }] : [];
+
   const session = {
     track,
     laps,
     racers,
     player,
     bangs,
-    events: events ? createEvents(track, random, bang) : null,
+    feature: setPiece,
+    events: events ? createEvents(track, random, bang, keepOut) : null,
     hazard: events && hazard ? createHazard(hazard, track, random, bang) : null,
     combat: createCombat(track, random, bang),
     phase: 'countdown', // 'countdown' | 'racing' | 'finished' (the player is home)
@@ -108,6 +119,7 @@ export function createSession({ track, surface, hazard, laps = 3, drivers, rando
     }
 
     collide(cars);
+    session.feature?.update(dt, session.time, racers);
     for (const racer of racers) {
       if (!racer.car.flight) locate(racer.car, track);
     }
@@ -168,6 +180,14 @@ export function createSession({ track, surface, hazard, laps = 3, drivers, rando
     if (previous > n * 0.75 && now < n * 0.25) racer.lap++;
     else if (previous < n * 0.25 && now > n * 0.75) racer.lap--;
     racer.progress = (racer.lap * n + now) * track.spacing + racer.car.along;
+
+    // Checkpoints: note when a racer moves on into the next sector.
+    const sector = Math.min(SECTORS - 1, Math.floor((now / n) * SECTORS));
+    if (sector !== racer.sector) {
+      const forward = sector === (racer.sector + 1) % SECTORS;
+      racer.sector = sector;
+      if (forward && racer.lap >= 0 && sector > 0) racer.lastEvent = { kind: 'checkpoint', at: session.time, sector };
+    }
 
     if (!racer.finished && racer.lap >= laps) {
       racer.finished = true;

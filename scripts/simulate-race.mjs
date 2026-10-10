@@ -14,7 +14,7 @@ import { TRACKS } from '../src/race/tracks/index.js';
 import { seeded } from '../src/race/world.js';
 
 const ATTACKS = [{ type: 'shot', shot: 'shell' }, { type: 'melee', reach: 3.4 }, null];
-const LAPS = 3;
+const LAPS = 2;
 const RACES = 5;
 const TIME_LIMIT = 900;
 const STEP = 1 / 60;
@@ -31,6 +31,7 @@ for (const theme of TRACKS) {
       track,
       surface: theme.surface,
       hazard: theme.hazard,
+      feature: theme.feature,
       laps: LAPS,
       random: seeded(100 + race),
       drivers: [

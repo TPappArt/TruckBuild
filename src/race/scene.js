@@ -5,9 +5,12 @@ import {
   boltGeometry,
   bombGeometry,
   boostGeometry,
+  checkpointLamp,
+  checkpointLine,
   FLAKE_HEIGHT,
   FLAKE_TILE,
   flakeGeometry,
+  freezeGeometry,
   haloGeometry,
   holeGeometry,
   ITEM_HALOS,
@@ -20,9 +23,11 @@ import {
   stripGeometry,
   trampolineGeometry,
 } from './props.js';
+import { PYRAMID, SNOWBALLS } from './features.js';
 import { createSession } from './session.js';
+import { curtainGeometry, pillarGeometry, snowballGeometry } from './setpieces.js';
 import { buildRaceVehicle } from './vehicle.js';
-import { buildWorld } from './world.js';
+import { buildWorld, CHECKPOINT_HEIGHT, checkpointSpan } from './world.js';
 
 // The 3D side of a race: builds the world for a track, runs a session on it,
 // draws everything that happens and follows the player with a chase camera.
@@ -49,6 +54,7 @@ const ITEM_GEOMETRY = {
   slow: slowGeometry,
   bomb: bombGeometry,
   trampoline: trampolineGeometry,
+  freeze: freezeGeometry,
 };
 
 function mesh(geometry) {
@@ -91,10 +97,12 @@ export function createRaceScene(renderer, view) {
   // Track events: things standing on the road, and things painted on it.
   let props = []; // [{ item, node, ring }]
   let strips = []; // [{ strip, node, fast, slow }]
-  let fixedGround = []; // the track's own ground, then the strips
+  let gates = []; // checkpoints: [{ index, x, z, heading, line, dim, lit }]
+  let fixedGround = []; // the track's own ground, then strips and checkpoint lines
 
   // Everything short-lived is drawn from pools, rebuilt every frame.
   const solidPool = createPool(); // bangs, shots, bolts, the mummy
+  const castPool = createPool(); // as solidPool, for things big enough to want a shadow
   const paintPool = createPool(); // rings, slicks, holes: flat on the road
   const glowPool = createPool(); // halos
   const flakePool = createPool();
@@ -110,7 +118,14 @@ export function createRaceScene(renderer, view) {
    */
   function start({ theme, drivers, laps }) {
     world = worldFor(theme);
-    session = createSession({ track: world.track, surface: theme.surface, hazard: theme.hazard, laps, drivers });
+    session = createSession({
+      track: world.track,
+      surface: theme.surface,
+      hazard: theme.hazard,
+      feature: theme.feature,
+      laps,
+      drivers,
+    });
     vehicles = session.racers.map((racer) => buildRaceVehicle(racer.build));
 
     // Baking borrowed the shared paint material; hand it back to the player.
@@ -137,7 +152,13 @@ export function createRaceScene(renderer, view) {
         slow: stripGeometry(world.track, strip, false),
       }));
     }
-    fixedGround = [world.ground, ...strips.map((entry) => entry.node)];
+    gates = world.checkpoints.map((checkpoint) => ({
+      ...checkpoint,
+      line: new Node(),
+      dim: checkpointLine(world.track, checkpoint.index, false),
+      lit: checkpointLine(world.track, checkpoint.index, true),
+    }));
+    fixedGround = [world.ground, ...strips.map((entry) => entry.node), ...gates.map((gate) => gate.line)];
 
     time = 0;
     cameraHeading = (player || session.racers[0]).car.heading;
@@ -157,9 +178,25 @@ export function createRaceScene(renderer, view) {
     });
 
     solidPool.reset();
+    castPool.reset();
     paintPool.reset();
     glowPool.reset();
     const pulse = 1 + 0.08 * Math.sin(time * 5);
+
+    // Frozen cars sit in a block of cold light.
+    for (const racer of session.racers) {
+      if (racer.car.effects.frozen > 0) glowPool.take(haloGeometry('frost'), racer.car.x, 1.3, racer.car.z, 3.4);
+    }
+
+    // Checkpoints light up once the player is through them, and go out
+    // again at the start of the next lap.
+    const player = session.player;
+    const span = checkpointSpan(world.track);
+    for (const gate of gates) {
+      const through = Boolean(player) && (player.finished || (player.lap >= 0 && player.car.index >= gate.index));
+      gate.line.geometry = through ? gate.lit : gate.dim;
+      solidPool.take(checkpointLamp(span, CHECKPOINT_HEIGHT, through), gate.x, 0, gate.z, 1, gate.heading);
+    }
 
     // Pickups, hazards and trampolines, each in its colour-coded ring and halo.
     props.forEach(({ item, node, ring, halo }, i) => {
@@ -170,7 +207,7 @@ export function createRaceScene(renderer, view) {
 
       if (item.kind === 'oil') {
         paintPool.take(oilGeometry(), item.x, 0, item.z, 1, item.heading);
-      } else if (item.kind === 'boost') {
+      } else if (item.kind === 'boost' || item.kind === 'freeze') {
         node.position = [item.x, 1.7 + 0.2 * Math.sin(time * 3 + i), item.z];
         node.rotation[1] = time * 2.6 + i;
       } else if (item.kind === 'slow') {
@@ -207,6 +244,7 @@ export function createRaceScene(renderer, view) {
     }
 
     placeHazard(dt);
+    placeFeature();
 
     ground.children = [...fixedGround, ...paintPool.active];
     ground.updateWorld();
@@ -270,6 +308,50 @@ export function createRaceScene(renderer, view) {
     }
   }
 
+  /** Draws the moving parts of the track's set piece. */
+  function placeFeature() {
+    const feature = session.feature;
+    if (!feature) return;
+
+    if (feature.kind === 'pyramid') {
+      for (const pillar of feature.pillars) {
+        if (pillar.height > 0) {
+          castPool.take(pillarGeometry(), pillar.x, -PYRAMID.height * (1 - pillar.height), pillar.z);
+        }
+        if (pillar.phase === 'warn') {
+          // The floor glows red where one is about to come up.
+          const throb = 1 + 0.15 * Math.sin(time * 18);
+          paintPool.take(ringGeometry('bad', 1.3, 2.1), pillar.x, 0, pillar.z, throb);
+          glowPool.take(haloGeometry('bad'), pillar.x, 0.3, pillar.z, [2.6, 1, 2.6]);
+        }
+      }
+    }
+
+    if (feature.kind === 'arcs') {
+      const curtain = curtainGeometry(world.track);
+      const reach = world.track.limit / 2;
+      for (const gate of feature.gates) {
+        // Live: on. About to go live: flickering, as a warning.
+        if (!gate.live && Math.floor(time * 14) % 2) continue;
+        // The curtain is modelled over +x, which is the left of the road.
+        solidPool.take(curtain, gate.x, 0, gate.z, [-gate.side, 1, 1], gate.heading);
+        if (gate.live) {
+          const middle = world.track.pointAt(gate.index, gate.side * reach);
+          glowPool.take(haloGeometry('spark'), middle.x, 3, middle.z, [reach, 5, reach]);
+        }
+      }
+    }
+
+    if (feature.kind === 'snowballs') {
+      for (const lane of feature.lanes) {
+        if (!lane.rolling) continue;
+        const ball = castPool.take(snowballGeometry(), lane.x, SNOWBALLS.radius, lane.z, SNOWBALLS.radius);
+        ball.rotation = [0, lane.heading, lane.direction * lane.turned];
+        ball.updateWorld();
+      }
+    }
+  }
+
   function update(dt, input) {
     if (!session) return;
     time += dt;
@@ -314,8 +396,8 @@ export function createRaceScene(renderer, view) {
       pulse: (theme.pulse ? theme.pulse(time) : 1) * flash,
       sky: world.sky,
       ground,
-      solids: [world.scenery, ...cars, ...standing, ...solidPool.active, ...flakePool.active],
-      casters: [...cars, ...standing, world.scenery],
+      solids: [world.scenery, ...cars, ...standing, ...castPool.active, ...solidPool.active, ...flakePool.active],
+      casters: [...cars, ...standing, ...castPool.active, world.scenery],
       shadow: { strength: theme.shadow },
       glows: glowPool.active,
     });

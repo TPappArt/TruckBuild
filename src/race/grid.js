@@ -13,9 +13,9 @@ const NAMES = ['Sparky', 'Dusty', 'Frosty', 'Nitro', 'Clunk', 'Zippy', 'Rattle',
 //   clumsy  how often they take their foot off and drift off line
 //           (1 = every 5 to 11 seconds, 0 = never)
 export const RIVALS = [
-  { pace: 0.72, lane: -4.2, weave: 2.4, clumsy: 1.0 },
-  { pace: 0.64, lane: 4.2, weave: 3.3, clumsy: 1.3 },
-  { pace: 0.56, lane: -1.8, weave: 4.2, clumsy: 1.6 },
+  { pace: 0.66, lane: -6.3, weave: 3.6, clumsy: 1.0 },
+  { pace: 0.59, lane: 6.3, weave: 5.0, clumsy: 1.3 },
+  { pace: 0.52, lane: -2.7, weave: 6.3, clumsy: 1.6 },
 ];
 
 function shuffled(list) {

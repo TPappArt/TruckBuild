@@ -153,9 +153,10 @@ export function createControls() {
       let brake = keys.brake ? 1 : 0;
 
       if (stick.pointer !== null) {
-        // Past the dead zone, steering grows smoothly from zero to full lock.
+        // Past the dead zone, steering grows from zero to full lock, gently at
+        // first so that small movements make small corrections.
         const amount = Math.abs(stick.x);
-        if (amount > DEAD_ZONE) steer += Math.sign(stick.x) * ((amount - DEAD_ZONE) / (1 - DEAD_ZONE));
+        if (amount > DEAD_ZONE) steer += Math.sign(stick.x) * ((amount - DEAD_ZONE) / (1 - DEAD_ZONE)) ** 1.6;
         if (stick.y > BRAKE_AT) brake = 1;
         else throttle = 1;
       }

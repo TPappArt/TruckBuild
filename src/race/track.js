@@ -148,6 +148,30 @@ export function createTrack({ points, halfWidth = 7, shoulder = 5 }) {
     return Math.sqrt(bestDistance);
   }
 
+  /**
+   * A place for a set piece `metres` long: the stretch `around` the given
+   * share of the lap (0..1), described by the straight line that best fits
+   * the road there. Returns { index, from, to, x, z, heading, bow } where
+   * `bow` is how far the road strays from that line, in metres.
+   */
+  function site(around, metres) {
+    const half = Math.round(metres / spacing / 2);
+    const index = wrap(Math.round(n * around));
+    const a = wrap(index - half);
+    const b = wrap(index + half);
+    const dx = xs[b] - xs[a];
+    const dz = zs[b] - zs[a];
+    const span = Math.hypot(dx, dz) || 1;
+    // Centre the line on the road: halfway between the chord and the middle
+    // of the bend, so the road strays equally to either side.
+    const midX = (xs[a] + xs[b]) / 2;
+    const midZ = (zs[a] + zs[b]) / 2;
+    const x = (midX + xs[index]) / 2;
+    const z = (midZ + zs[index]) / 2;
+    const bow = Math.hypot(xs[index] - midX, zs[index] - midZ) / 2;
+    return { index, from: a, to: b, x, z, heading: Math.atan2(dx / span, dz / span), bow };
+  }
+
   return {
     count: n,
     spacing,
@@ -165,5 +189,6 @@ export function createTrack({ points, halfWidth = 7, shoulder = 5 }) {
     project,
     pointAt,
     distanceTo,
+    site,
   };
 }

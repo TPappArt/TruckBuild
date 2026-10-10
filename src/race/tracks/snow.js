@@ -71,11 +71,12 @@ export const snowy = {
       [-130, -40], [-65, -105], [25, -110], [115, -85], [155, -15], [125, 55], [60, 40],
       [28, 88], [85, 126], [35, 176], [-60, 140], [-85, 60], [-155, 25],
     ],
-    halfWidth: 10.5,
+    halfWidth: 15.75,
     shoulder: 5,
   },
-  surface: { grip: 3, offroad: 0.55 },
+  surface: { grip: 5, offroad: 0.55, slide: 0.75 },
   hazard: 'storm', // see race/hazards.js
+  feature: 'snowballs', // see race/features.js
 
   sky: { top: '#4f9eea', disc: { color: '#ffffff', size: 5 } },
   fog: { color: '#e6f1fb', density: 0.0045 },

@@ -54,6 +54,23 @@ export const slowGeometry = () =>
     return k.node;
   });
 
+/** Freeze pickup: a big snowflake. Floats and spins. */
+export const freezeGeometry = () =>
+  once('freeze', () => {
+    const k = kit();
+    const ice = material('#d9f7ff', { glow: 0.85 });
+    // Three bars crossed through the middle, each with a barb near its ends.
+    for (let i = 0; i < 3; i++) {
+      const arm = k.sub({ rot: [0, 0, (i * Math.PI) / 3] });
+      arm.slab(ice, [2.2, 0.2, 0.22]);
+      for (const end of [1, -1]) {
+        arm.slab(ice, [0.2, 0.6, 0.22], { at: [end * 0.72, 0, 0], rot: [0, 0, end * 0.7] });
+        arm.slab(ice, [0.2, 0.6, 0.22], { at: [end * 0.72, 0, 0], rot: [0, 0, -end * 0.7] });
+      }
+    }
+    return k.node;
+  });
+
 /** Hazard: a cartoon bomb with a lit fuse. */
 export const bombGeometry = () =>
   once('bomb', () => {
@@ -85,6 +102,7 @@ export const HALO_COLOURS = {
   bounce: '#3aa2ff',
   spark: '#a6f4ff',
   fire: '#ffb347',
+  frost: '#7fe6ff',
 };
 
 /** A plain ball in one of the halo colours. Drawn with the renderer's glow pass. */
@@ -102,6 +120,7 @@ export const ITEM_HALOS = {
   bomb: ['bad', 2.4, 1.2, 1],
   oil: ['bad', 3.2, 0.2, 0.35],
   trampoline: ['bounce', 3.3, 0.7, 0.5],
+  freeze: ['frost', 2.4, 1.7, 1],
 };
 
 // ---------- Bangs ----------
@@ -110,6 +129,7 @@ const BANG_LOOKS = {
   blast: material('#ff9a2e', { glow: 1 }),
   spark: material('#c9f8ff', { glow: 1 }),
   dust: material('#e2c79a', { spec: 0 }),
+  snow: material('#ffffff', { spec: 0 }),
 };
 
 /** A ball that the scene swells up over a moment: 'blast', 'spark' or 'dust'. */
@@ -295,7 +315,35 @@ export const ITEM_RINGS = {
   bomb: ['bad', 1.8, 2.2],
   oil: ['bad', 3.0, 3.35],
   trampoline: ['bounce', 2.75, 3.15],
+  freeze: ['frost', 1.7, 2.1],
 };
+
+const checkpointLooks = {
+  dim: { line: material('#8b93a6'), lamp: material('#4a5266', { spec: 0.3 }) },
+  lit: { line: material('#6dff97', { glow: 1 }), lamp: material('#6dff97', { glow: 1 }) },
+};
+
+/** The line across the road at a checkpoint, dull or lit up. */
+export function checkpointLine(track, index, lit) {
+  const flat = createFlat();
+  const half = track.halfWidth;
+  const at = (i, offset) => {
+    const p = track.pointAt(index + i, offset);
+    return [p.x, p.z];
+  };
+  flat.polygon([at(-0.4, -half), at(-0.4, half), at(0.4, half), at(0.4, -half)], (lit ? checkpointLooks.lit : checkpointLooks.dim).line);
+  return flat.finish();
+}
+
+/** The strip of lights under a checkpoint gate's beam, dull or lit up. */
+export const checkpointLamp = (span, height, lit) =>
+  once(`lamp-${span}-${lit}`, () => {
+    const k = kit();
+    const look = (lit ? checkpointLooks.lit : checkpointLooks.dim).lamp;
+    k.slab(look, [span * 2 - 0.8, 0.7, 0.4], { at: [0, height - 0.45, 0] });
+    for (const side of [1, -1]) k.ball(look, { r: 0.55, seg: 6, rings: 3 }, { at: [side * span, height + 0.8, 0] });
+    return k.node;
+  });
 
 /** The hole a mummy climbs out of. */
 export function holeGeometry() {

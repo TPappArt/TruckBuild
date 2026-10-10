@@ -9,7 +9,7 @@ from parts, then race it. "TruckBuild" is a working title; see
 
 - **Garage:** pick one part from each of four categories and see the result
   on a turntable.
-- **Race:** a three-lap circuit race against three computer rivals in random
+- **Race:** a two-lap circuit race against three computer rivals in random
   contraptions, on one of three tracks: Electric Swamp, Pyramid Desert and
   Snowy Mountains. Random events on the road (pickups, hazards, trampolines
   and strips), a hazard unique to each track, and working weapons shake
@@ -78,7 +78,7 @@ A new body also needs `mounts`: where the axles, weapons and extras attach.
 | Steer | Left / Right, or A / D | Drag left or right; further turns harder |
 | Accelerate | Up, or W | Automatic while the finger is down |
 | Brake, then reverse | Down, or S | Pull the finger back |
-| Fire (blaster, cannon) | Space | Fire button, bottom right |
+| Fire (blaster, cannon) | Space | Fire button, middle left |
 
 On a touch screen the whole race view is a floating joystick: it appears
 wherever the finger lands, so it suits either hand. Lifting the finger coasts.
@@ -89,7 +89,16 @@ a heading and a velocity, and sideways speed bleeds away at a rate set by the
 track's grip. Turning too hard scrubs speed off rather than spinning the car,
 so holding the accelerator and steering gets a beginner round. Leaving the
 road is slow, and a soft wall at the edge of the shoulder keeps everyone on
-the circuit. Snow has less than half the grip of the desert.
+the circuit. Snow has about half the grip of the desert.
+
+A car can never point more than about 25 degrees away from the way it is
+travelling (`TUNING.maxSlide`; snow allows more), which is what keeps it from
+feeling slippery however hard the steering is held over.
+
+Each lap is split into four sectors. A gate and a line across the road mark
+the end of each of the first three, and light up green as the player goes
+through. A small map at the top right shows the circuit, the sectors done
+this lap, and a dot for every racer.
 
 For now every build drives the same. Wheels, bodies and extras are looks
 only; weapons work (below).
@@ -116,23 +125,36 @@ the pack stays in sight. Their numbers are in `src/race/grid.js`.
 
 ### Track events
 
-Each race scatters these at random (`src/race/events.js`):
+Each race has these on the road (`src/race/events.js`):
 
 | Family | Event | What it does |
 | --- | --- | --- |
-| Pickup | Lightning bolt | Speed boost for a few seconds |
+| Pickup | Lightning bolt | Speed boost for a few seconds. Bolts sit in two rows of five across the road, in the same places every race. |
+| Pickup | Snowflake | Freezes every other car for 4 seconds. Only the player can pick it up. |
 | Pickup | Snail | Slows the car for a few seconds |
 | Hazard | Bomb | Tosses the car in the air; it loses its speed |
 | Hazard | Oil | Grip and steering go for a moment |
 | Modifier | Trampoline | Throws the car about 70 m down the track |
 | Modifier | Strip | One side of the road speeds cars up (green arrows) or slows them down (red bars) while they are on it, and flips between the two every 6 to 12 seconds |
 
-Pickups and bombs vanish when hit and reappear somewhere else; oil moves on
-after a while. There are more good things than bad. Rivals do not avoid
+Apart from the bolt rows, everything is placed at random each race. Bolts
+come back where they were a few seconds after being taken; other pickups and
+bombs reappear somewhere else; oil moves on after a while. There are more good things than bad. Rivals do not avoid
 anything, which is part of why they lose.
 
 Everything is colour coded with a halo and a ring on the road, so it can be
 read without reading: **green** helps, **red** hurts, **blue** bounces.
+
+### Set pieces
+
+Each track has one big thing to drive through (`src/race/features.js`,
+drawn by `src/race/setpieces.js`):
+
+| Track | Set piece |
+| --- | --- |
+| Pyramid Desert | The road runs through a pyramid. Inside, eight stone pillars rise out of the floor at random; the floor glows red just before one comes up. A raised pillar is solid. |
+| Electric Swamp | Three gantries in a row, each hanging a curtain of electricity over one half of the road. The live half swaps sides every couple of seconds, flickering first. |
+| Snowy Mountains | Giant snowballs roll across the road along three lanes of ice. |
 
 ### Track hazards
 
@@ -205,6 +227,8 @@ src/race/car.js         driving model, computer driver, collisions
 src/race/session.js     race rules: grid, countdown, laps, places, finish
 src/race/events.js      random track events: pickups, hazards, trampolines, strips
 src/race/hazards.js     each track's own hazard: mummy, lightning, snowstorm
+src/race/features.js    each track's set piece: pyramid hall, arc gates, snowballs
+src/race/setpieces.js   what the set pieces look like
 src/race/combat.js      weapons: shots, always-on melee, reloading
 src/race/props.js       what events, hazards and shots look like
 src/race/track.js       the centre line: sampling, projection, curvature

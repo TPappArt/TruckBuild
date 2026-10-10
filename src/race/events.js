@@ -1,9 +1,14 @@
 import { EFFECTS, knock, launch } from './car.js';
 
-// Random events on the track. Three families, two of each:
+// Things on the road that change a race:
 //
-//   Pickups    'boost'       speeds the car up for a few seconds
+//   Pickups    'boost'       speeds the car up for a few seconds. Boosts sit
+//                            in rows across the road at fixed places, so
+//                            everyone gets a shot at one each time round.
 //              'slow'        slows it down for a few seconds
+//              'freeze'      stops every other car dead for a few seconds.
+//                            Only the player can pick it up: rivals drive
+//                            straight through it.
 //   Hazards    'bomb'        tosses the car in the air; it loses its speed
 //              'oil'         takes away grip and steering for a moment
 //   Modifiers  'trampoline'  throws the car a long way down the track
@@ -12,34 +17,66 @@ import { EFFECTS, knock, launch } from './car.js';
 //                            it. Each strip flips between the two now and
 //                            then, so the fast line keeps changing.
 //
-// Where everything goes is random each race. Pickups and bombs vanish when
-// hit and come back somewhere else; oil moves on after a while.
+// Apart from the boost rows, where everything goes is random each race.
+// Random pickups and bombs vanish when hit and come back somewhere else;
+// boosts come back where they were; oil moves on after a while.
 //
 // This file only decides what happens; drawing is in scene.js and props.js.
 
-// More good things than bad: it is meant to be fun, not punishing.
-const COUNTS = { boost: 9, slow: 3, bomb: 3, oil: 3, trampoline: 3 };
+// Random items. More good things than bad overall, counting the boost rows.
+const COUNTS = { slow: 3, bomb: 3, oil: 3, trampoline: 2, freeze: 2 };
 const STRIPS = 2;
 
-// How close a car's centre has to be to set each one off, in metres.
-const REACH = { boost: 2.3, slow: 2.2, bomb: 2.0, oil: 2.6, trampoline: 2.6 };
+// Boost rows: where around the lap (0..1), and how many across the road.
+const BOOST_ROWS = [0.13, 0.6];
+const BOOSTS_PER_ROW = 5;
 
-const RESPAWN = { boost: 3, slow: 5, bomb: 5 }; // seconds before it reappears elsewhere
+// How close a car's centre has to be to set each one off, in metres.
+const REACH = { boost: 2.5, slow: 2.2, bomb: 2.0, oil: 2.6, trampoline: 2.6, freeze: 2.5 };
+
+const RESPAWN = { boost: 4, slow: 5, bomb: 5, freeze: 12 }; // seconds before it reappears
 const OIL_MOVES = [16, 28]; // seconds an oil patch stays put
 const STRIP_FLIPS = [6, 12]; // seconds a strip stays fast or slow
 const STRIP_LENGTH = 44; // metres
 
-/** `bang(x, z, kind)` is called when something goes off, for the scene to draw. */
-export function createEvents(track, random, bang = () => {}) {
+/**
+ * keepOut: [{ from, to }] stretches of the lap, in samples, to leave empty
+ *          (the track's set piece).
+ * bang(x, z, kind) is called when something goes off, for the scene to draw.
+ */
+export function createEvents(track, random, bang = () => {}, keepOut = []) {
   const between = ([low, high]) => low + (high - low) * random();
   const items = [];
   const strips = [];
 
-  // Strips first, so items can keep clear of them.
+  // Stretches already spoken for. Everything placed adds itself here.
+  const taken = keepOut.map((range) => ({ ...range }));
+  const inside = (index, range, margin) => track.wrap(index - range.from + margin) < track.wrap(range.to - range.from) + margin * 2;
+  const free = (index, margin = 5) => !taken.some((range) => inside(index, range, margin));
+  /** The nearest free sample at or after `index`. */
+  const nextFree = (index, length = 0) => {
+    for (let step = 0; step < track.count; step++) {
+      const from = track.wrap(index + step);
+      if (free(from, 6) && free(from + length, 6)) return from;
+    }
+    return track.wrap(index);
+  };
+
+  // Boost rows: fixed places, the same every race.
+  for (const share of BOOST_ROWS) {
+    const index = nextFree(Math.round(track.count * share));
+    taken.push({ from: index - 3, to: index + 3 });
+    for (let i = 0; i < BOOSTS_PER_ROW; i++) {
+      const offset = ((i / (BOOSTS_PER_ROW - 1)) * 2 - 1) * (track.halfWidth - 2.5);
+      const at = track.pointAt(index, offset);
+      items.push({ kind: 'boost', fixed: true, active: true, timer: 0, index, offset, x: at.x, z: at.z, heading: at.heading });
+    }
+  }
+
+  // Strips: spread around the lap, on alternate sides.
   for (let i = 0; i < STRIPS; i++) {
     const length = Math.round(STRIP_LENGTH / track.spacing);
-    // Spread around the lap, away from the start, on alternate sides.
-    const start = track.wrap(Math.round(track.count * ((i + 0.5) / STRIPS + random() * 0.2 - 0.1)) + 30);
+    const start = nextFree(Math.round(track.count * ((i + 0.5) / STRIPS + random() * 0.16 - 0.08)) + 30, length);
     const side = i % 2 ? 1 : -1;
     strips.push({
       start,
@@ -49,22 +86,17 @@ export function createEvents(track, random, bang = () => {}) {
       fast: random() < 0.5,
       timer: between(STRIP_FLIPS),
     });
+    taken.push({ from: start, to: start + length });
   }
 
-  const onStrip = (index, margin = 0) =>
-    strips.some((strip) => {
-      const along = track.wrap(index - strip.start + margin);
-      return along < strip.length + margin * 2;
-    });
-
-  /** Finds a clear place on the road for an item. */
+  /** Finds a clear place on the road for a random item. */
   function findSpot(item) {
-    for (let tries = 0; tries < 60; tries++) {
+    for (let tries = 0; tries < 80; tries++) {
       const index = Math.floor(random() * track.count);
-      // Not on the grid or just past the line, not on a strip, and not on
-      // top of another item.
+      // Not on the grid or just past the line, not somewhere spoken for,
+      // and not on top of another item.
       if (index < 26 || index > track.count - 14) continue;
-      if (onStrip(index, 4)) continue;
+      if (!free(index)) continue;
       const crowded = items.some((other) => other !== item && Math.abs(track.wrap(other.index - index + 9) - 9) < 9);
       if (crowded) continue;
       const offset = (random() * 2 - 1) * (track.halfWidth - 2);
@@ -76,16 +108,15 @@ export function createEvents(track, random, bang = () => {}) {
 
   for (const [kind, count] of Object.entries(COUNTS)) {
     for (let i = 0; i < count; i++) {
-      const item = { kind, active: true, timer: kind === 'oil' ? between(OIL_MOVES) : 0, hitAt: -10, x: 0, z: 0 };
+      const item = { kind, active: true, timer: kind === 'oil' ? between(OIL_MOVES) : 0, index: 0, x: 0, z: 0 };
       findSpot(item);
       items.push(item);
     }
   }
 
-  function take(item, time) {
+  function take(item) {
     item.active = false;
     item.timer = RESPAWN[item.kind];
-    item.hitAt = time;
   }
 
   /** Applies events to every racer. `time` is the race clock. */
@@ -102,8 +133,9 @@ export function createEvents(track, random, bang = () => {}) {
       if (item.active && item.kind !== 'oil') continue;
       item.timer -= dt;
       if (item.timer > 0) continue;
-      // Reappear, or in oil's case seep away to somewhere new.
-      findSpot(item);
+      // Reappear (somewhere new, unless it has a fixed place), or in oil's
+      // case seep away to somewhere else.
+      if (!item.fixed) findSpot(item);
       item.active = true;
       if (item.kind === 'oil') item.timer = between(OIL_MOVES);
     }
@@ -134,15 +166,21 @@ export function createEvents(track, random, bang = () => {}) {
         if (item.kind === 'boost') {
           effects.boost = EFFECTS.boost.time;
           effects.slow = 0;
-          take(item, time);
+          take(item);
         } else if (item.kind === 'slow') {
           effects.slow = EFFECTS.slow.time;
           effects.boost = 0;
-          take(item, time);
+          take(item);
+        } else if (item.kind === 'freeze') {
+          if (!racer.isPlayer) continue;
+          for (const other of racers) {
+            if (other !== racer) other.car.effects.frozen = EFFECTS.freeze.time;
+          }
+          take(item);
         } else if (item.kind === 'bomb') {
           if (!knock(car)) continue; // still recovering from the last knock
           bang(item.x, item.z, 'blast');
-          take(item, time);
+          take(item);
         } else if (item.kind === 'oil') {
           if (effects.slip > 0) continue; // already sliding; no need to say so again
           effects.slip = EFFECTS.slip.time;

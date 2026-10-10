@@ -1,4 +1,5 @@
 import { RELOAD } from './combat.js';
+import { SECTORS } from './session.js';
 import { createTrack } from './track.js';
 import { TRACKS } from './tracks/index.js';
 
@@ -15,8 +16,12 @@ export function formatTime(seconds) {
 }
 
 // What to say when a track event happens to the player, and whether it is
-// good news (shown in green) or bad (red).
+// good news (shown in green), bad (red) or just news ('info', blue).
 const EVENT_NOTES = {
+  checkpoint: ['Checkpoint!', 'info'],
+  freeze: ['Freeze! Rivals stopped', true],
+  pillar: ['Pillar!', false],
+  snowball: ['Snowball!', false],
   boost: ['Speed boost!', true],
   slow: ['Snail! Slowed down', false],
   bomb: ['Boom!', false],
@@ -67,10 +72,11 @@ export function createHud() {
     const event = player.lastEvent;
     if (event && event !== shownEvent) {
       shownEvent = event;
-      const [note, good] = EVENT_NOTES[event.kind];
-      text(toast, note);
-      toast.classList.toggle('good', good);
-      toast.classList.toggle('bad', !good);
+      const [note, tone] = EVENT_NOTES[event.kind];
+      text(toast, event.kind === 'checkpoint' ? `Checkpoint ${event.sector} of ${SECTORS - 1}` : note);
+      toast.classList.toggle('good', tone === true);
+      toast.classList.toggle('bad', tone === false);
+      toast.classList.toggle('info', tone === 'info');
     }
     toast.hidden = !shownEvent || session.time - shownEvent.at > NOTE_TIME || player.finished;
 
@@ -81,6 +87,98 @@ export function createHud() {
       fire.classList.toggle('ready', left <= 0);
       text(fireLabel, left > 0 ? String(Math.ceil(left)) : 'Fire');
     }
+
+    // The map does not need redrawing every frame.
+    if (mapTick++ % 3 === 0) drawMap(session);
+  }
+
+  // ---------- Minimap ----------
+  // The circuit seen from above, with a dot for every racer. Sectors the
+  // player has been through this lap are picked out in green.
+
+  const map = $('minimap');
+  const mapContext = map.getContext('2d');
+  let mapTick = 0;
+  let mapPoint = null; // (x, z) in the world to [x, y] on the map
+  let mapOutline = null; // the circuit, drawn once per race
+
+  function setupMap(track) {
+    const density = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.round(map.clientWidth * density) || 248;
+    const height = Math.round(map.clientHeight * density) || 184;
+    map.width = width;
+    map.height = height;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < track.count; i++) {
+      minX = Math.min(minX, track.xs[i]);
+      maxX = Math.max(maxX, track.xs[i]);
+      minZ = Math.min(minZ, track.zs[i]);
+      maxZ = Math.max(maxZ, track.zs[i]);
+    }
+    const margin = 9 * density;
+    const scale = Math.min((width - margin * 2) / (maxX - minX), (height - margin * 2) / (maxZ - minZ));
+    // Flipped left to right, like the track picker, to match the driver's view.
+    mapPoint = (x, z) => [width / 2 - (x - (minX + maxX) / 2) * scale, height / 2 - (z - (minZ + maxZ) / 2) * scale];
+
+    const trace = (context, from, to) => {
+      context.beginPath();
+      for (let i = from; i <= to; i++) context.lineTo(...mapPoint(track.xs[track.wrap(i)], track.zs[track.wrap(i)]));
+      context.stroke();
+    };
+    mapOutline = { density, trace, sector: track.count / SECTORS };
+
+    // The whole circuit, with a tick at the start line and at each checkpoint.
+    const still = document.createElement('canvas');
+    still.width = width;
+    still.height = height;
+    const context = still.getContext('2d');
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.strokeStyle = 'rgb(255 255 255 / 45%)';
+    context.lineWidth = 4 * density;
+    trace(context, 0, track.count);
+    context.fillStyle = '#ffffff';
+    for (let k = 0; k < SECTORS; k++) {
+      const [x, y] = mapPoint(track.xs[Math.round(k * mapOutline.sector) % track.count], track.zs[Math.round(k * mapOutline.sector) % track.count]);
+      context.beginPath();
+      context.arc(x, y, (k === 0 ? 3.4 : 2.2) * density, 0, Math.PI * 2);
+      context.fill();
+    }
+    mapOutline.still = still;
+  }
+
+  function drawMap(session) {
+    if (!mapOutline) return;
+    const { density, trace, sector, still } = mapOutline;
+    const player = session.player;
+    mapContext.clearRect(0, 0, map.width, map.height);
+    mapContext.drawImage(still, 0, 0);
+
+    // Sectors completed this lap.
+    mapContext.lineCap = 'round';
+    mapContext.lineJoin = 'round';
+    mapContext.strokeStyle = '#6dff97';
+    mapContext.lineWidth = 4 * density;
+    const done = player.finished ? SECTORS : player.lap < 0 ? 0 : player.sector;
+    if (done > 0) trace(mapContext, 0, Math.round(done * sector));
+
+    // Rivals first, so the player's dot is always on top.
+    const dot = (racer, radius, ring) => {
+      const [x, y] = mapPoint(racer.car.x, racer.car.z);
+      mapContext.beginPath();
+      mapContext.arc(x, y, radius * density, 0, Math.PI * 2);
+      mapContext.fillStyle = racer.build?.paint || '#ffffff';
+      mapContext.fill();
+      mapContext.lineWidth = ring * density;
+      mapContext.strokeStyle = racer.isPlayer ? '#ffffff' : 'rgb(13 29 77 / 80%)';
+      mapContext.stroke();
+    };
+    for (const racer of session.racers) if (!racer.isPlayer) dot(racer, 3.2, 1);
+    dot(player, 4.6, 2);
   }
 
   // Seconds since the player started their final lap.
@@ -98,6 +196,8 @@ export function createHud() {
     toast.hidden = true;
     // Only weapons that fire need a button; the others are always on.
     fire.hidden = session.player.attack?.type !== 'shot';
+    setupMap(session.track);
+    mapTick = 0;
   }
 
   /** Fills in and shows the results sheet. */
