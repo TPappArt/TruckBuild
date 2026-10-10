@@ -153,7 +153,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
             --title "TruckBuild ${GITHUB_REF_NAME#v}" \
             --notes "Android: install TruckBuild.apk. Windows: run TruckBuild-Setup.exe, or just run TruckBuild.exe without installing. Both were built and tried by the Installers workflow." \
-            out/TruckBuild.apk out/TruckBuild-Setup.exe out/TruckBuild.exe
+            "out/TruckBuild.apk" "out/TruckBuild-Setup.exe" "out/TruckBuild.exe"
 
   # While the workflow itself is being worked on (on a branch called ci/...),
   # what it built and the screenshots from its tests are pushed to a branch

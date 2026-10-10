@@ -18,6 +18,8 @@ things that hold them together: a driver, coins, a shop and tracks to open.
   events on the road (pickups, hazards, trampolines and strips), a dangerous
   landmark on each track, bridges, tunnels and two-lane stretches, and
   working weapons shake things up. Two more race types are planned.
+- **Installers:** an Android app and a Windows setup program, built and
+  tried out by a workflow. See [Installing it](#installing-it).
 
 | Category | Parts (price in coins) |
 | --- | --- |
@@ -77,6 +79,60 @@ on a phone on the same Wi-Fi to test on a real device.
 Opening `index.html` straight from disk does not work, because browsers block
 JavaScript modules on `file://` pages.
 
+## Installing it
+
+The game is a web page, and the installers are that page wrapped up so that
+it can be put on a device like any other app. Neither goes online: there is
+nothing to sign in to and nothing is sent anywhere.
+
+| | File | What it is |
+| --- | --- | --- |
+| Android | `TruckBuild.apk` | An app for Android 6 and newer, about a quarter of a megabyte. It asks for no permissions at all, not even the network. |
+| Windows | `TruckBuild-Setup.exe` | A setup program for Windows 10 and 11. Installs for the current user (no administrator password), with Start menu and desktop shortcuts and an entry under "Installed apps" to remove it. |
+| Windows | `TruckBuild.exe` | The same game as one program that runs where it is, with no setup. |
+
+**Where they come from.** Pushing a version tag (`git tag v0.5.0 && git push
+origin v0.5.0`) runs the *Installers* workflow, which builds all three,
+installs and starts the Android app on an emulator, installs, runs and
+removes the Windows one on a Windows machine, and puts the files in a draft
+release for someone to look over and publish. It can also be started by hand
+from the repository's Actions tab.
+
+**Installing on Android.** Open the `.apk` on the phone or tablet. Android
+asks once for permission to install apps from that source (the browser or
+file manager it was opened from), since it did not come from a store.
+
+**Installing on Windows.** Run the setup program. It is not signed with a
+publisher's certificate, so Windows may show "Windows protected your PC":
+choose *More info*, then *Run anyway*.
+
+On Windows the game shows in a window of its own using Microsoft Edge, which
+every Windows 10 and 11 machine has (or Chrome, or failing both the default
+browser). The program serves the game to that window from inside itself, to
+this computer only, and stops when the window is closed. Saved games are
+kept in a browser profile of the game's own
+(`%LOCALAPPDATA%\TruckBuild\Profile`); uninstalling removes them.
+
+**Building them yourself.**
+
+```sh
+npm run build:windows   # needs Go; and makensis for the setup program
+npm run build:android   # needs a JDK and an Android SDK (ANDROID_HOME)
+```
+
+Both start from `npm run package`, which gathers the game's files into
+`dist/www`. That folder is also all a web server needs to host the game.
+
+**The Android signing key.** Android only lets an app be updated by one
+signed with the same key. The key in `android/sideload.jks` is used by
+default and is in this repository for anyone to read: fine for handing the
+app to family and friends, no good for a store. To use a key of your own,
+keep it out of the repository and give the workflow three secrets:
+`ANDROID_KEYSTORE_BASE64` (the keystore file, base64 encoded),
+`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`. An app already installed
+with the old key has to be uninstalled once before one signed with the new
+key will go on, which loses its saved game.
+
 ## Art style and the triangle budget
 
 Parts are cartoon-style and low-poly: at most **200 triangles** each
@@ -114,6 +170,12 @@ knowing before modelling anything new:
 - **Paint is nearly free.** The ground is flat layers drawn in order, each
   over the last, so tyre marks, cracks, ragged verges, planks, flagstones,
   leaves and strands of grass are all paint (`race/world.js`).
+- **No two the same.** Every copy of a prop is a touch lighter or darker
+  and warmer or cooler than the next, and scattered ones are a little
+  taller or squatter, decided by where each stands. Everything is shaded
+  darker toward the ground it stands on, car bodies included. All of it is
+  worked into the colours when the meshes are merged (`engine/bake.js`), so
+  it costs nothing to draw.
 - **Scenery comes in groups.** Each track places a dozen little scenes
   round the lap (a ruined colonnade, an oasis, a roadblock, a pumpkin patch)
   and only a thin scatter between them. See `spots()` in `race/world.js`
@@ -166,6 +228,14 @@ light blue, and a dot for every racer.
 
 Every car has a nameplate over it with its driver's face and name. Coins
 picked up so far are shown under the place number.
+
+Drivers talk. A bubble with one short word pops up over a car when
+something happens to it ("Zoom!" for a boost, "Oops" for oil, "Brrr" when
+frozen, "Bye!" for an overtake), and two cars side by side say hello, with
+the other often answering ("Beep", "Honk"). Words are five letters or
+fewer, for players who are only just reading; at most two bubbles show at
+once. It is decoration only and changes nothing about a race
+(`src/race/chatter.js`).
 
 For now every build drives the same. Wheels, bodies and extras are looks
 only; weapons work (below).
@@ -304,6 +374,29 @@ finish. Run it after changing the driving model, the rivals, the events, a
 landmark or a layout.
 
 ```sh
+npm run fuzz
+```
+
+tries to break a race instead: it puts a driver who does anything at all in
+the player's seat (random stabs at the controls, reversing round the lap,
+parking across the road on the nose of an island, never letting go of the
+fire button) and checks sixty times a second that nothing impossible has
+happened: every number is a number, no car is through a wall or inside an
+island, places are 1 to 4 with no ties, and the rivals keep moving.
+
+```sh
+npm run check:contrast
+```
+
+checks that what a driver has to tell apart can be told apart. It works out
+the colour the road, its verge, the ground, the kerbs, the centre line, the
+pickups' rings and every car paint come out on screen on each track (the
+same sums as the shader: that track's light, sky and fog), near the car and
+well down the road, and measures how different each pair looks. The road
+against what lies beside it matters most: it is what a child steers by. Run
+it after changing a track's colours, lighting or fog.
+
+```sh
 npm run check:tracks            # every track
 npm run check:tracks -- snow    # one track
 ```
@@ -326,10 +419,20 @@ shadow, plus see-through halos for glowing things. It has no dependencies.
 It is fast because of how little it draws. Anything static is merged into a
 single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
 scenery is one or two draw calls, and a car is two to six however elaborate
-the build. A track is 35 to 60 thousand triangles, ground, scenery and built
-road together. A race is 170 to 270 draw calls, most of them the pickups on
-the road with their rings, halos and shadows. Two built tracks are kept in
-memory at a time.
+the build, and so is the sky, stars and all. A track is 35 to 60 thousand
+triangles, ground, scenery and built road together. A race is 75 to 100
+draw calls, most of them the cars and the pickups near them with their
+rings, halos and shadows; pickups out of sight are not drawn. Two built
+tracks are kept in memory at a time.
+
+What a phone runs out of first is pixels, not triangles: every pixel of
+ground is lit, fogged and gamma corrected, some of them several times over.
+So on a device that cannot keep up, the game draws fewer of them
+(`src/governor.js`). It watches how long frames take; if most are slow it
+lowers the pixel density a step, down to 60% of full, and if they have all
+been comfortably fast for a while it tries a step back up. Nothing else
+about the picture changes. `GAME.adaptiveResolution` in `src/config.js`
+turns it off.
 
 A frame is drawn in this order (`engine/renderer.js`):
 
@@ -379,6 +482,8 @@ happen the instant the page loads. The start screen's Play button is that tap.
 | Desktop browsers, Android, iPad | Play puts the page into fullscreen. `F` toggles it; after leaving, a corner button offers a way back in. |
 | iPhone Safari | Safari has no fullscreen for web pages. The game fills the browser viewport, and the start screen suggests adding it to the home screen. |
 | Installed to a home screen (any device) | Launches fullscreen with no browser chrome, via `manifest.webmanifest` and the `apple-*` meta tags. |
+| The Android app | Always fullscreen: the app hides the system bars itself, and tells the page so (`?app` on the address) that it does not ask. The back button leaves a race or closes whatever is open, and at the garage puts the app in the background. |
+| The Windows app | Opens maximised in a window of its own. Play puts it into fullscreen and Esc brings the window back, as in a browser. |
 
 Home screen install on Android needs the game served over HTTPS; `localhost`
 is the exception.
@@ -406,6 +511,7 @@ src/race/features.js    each track's landmark: where it is and what stands in th
 src/race/hazards.js     what comes at a car there: mummy, lightning, storm, werewolf, meteor
 src/race/setpieces.js   what the landmarks look like
 src/race/combat.js      weapons: shots, always-on melee, reloading
+src/race/chatter.js     what the drivers say in their speech bubbles, and when
 src/race/props.js       what events, creatures and shots look like
 src/race/dressing.js    trackside furniture shared by every track
 src/race/track.js       the centre line: sampling, projection, curvature, heights, islands
@@ -419,9 +525,13 @@ src/race/controls.js    keyboard and one-finger joystick
 src/engine/             shape builders, scene nodes, materials, baking, WebGL renderer
 src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking
+src/governor.js         lowers the pixel density on devices that cannot keep up
 src/loop.js             frame loop, paused while the tab is hidden
 icons/                  placeholder icons
-scripts/                dev server, part check, track check, race simulation, rename script
+scripts/                dev server, checks (parts, tracks, contrast), race simulation and fuzz, packaging, rename
+android/                the Android app: one WebView round the game, its build and its test
+desktop/                the Windows app: a launcher with the game inside it, and its setup program
+.github/workflows/      checks on every push; installers built and tried on a version tag
 ```
 
 ## Renaming the game

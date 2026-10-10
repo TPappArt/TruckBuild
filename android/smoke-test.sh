@@ -31,7 +31,7 @@ adb shell input tap $((WIDTH / 2)) $((HEIGHT * 72 / 100))
 sleep 8
 adb exec-out screencap -p > dist/android-3-garage.png
 
-adb logcat -d -s TruckBuild:I > dist/android-log.txt
+adb logcat -d -s GamePage:I > dist/android-log.txt
 pidof_app="$(adb shell pidof "$APP" | tr -d '\r')"
 note "Screen ${WIDTH}x${HEIGHT}. App process: ${pidof_app:-NOT RUNNING}. Log lines: $(wc -l < dist/android-log.txt)."
 grep -m 3 "page finished" dist/android-log.txt | while read -r line; do note "$line"; done

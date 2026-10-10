@@ -33,7 +33,7 @@ import java.util.Map;
  * and the app does not hold the permission that would allow it.
  */
 public class MainActivity extends Activity {
-    private static final String TAG = "TruckBuild";
+    private static final String TAG = "GamePage"; // android/smoke-test.sh reads the log by this
 
     /** An address Google keeps for exactly this purpose: it leads nowhere. */
     private static final String HOST = "appassets.androidplatform.net";
