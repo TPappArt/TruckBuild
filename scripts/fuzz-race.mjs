@@ -91,6 +91,23 @@ function check(theme, session, memo) {
     if (!Number.isFinite(item.x) || !Number.isFinite(item.z) || !Number.isFinite(item.y ?? 0)) note(theme, `a ${item.kind} is nowhere`);
   }
 
+  // The golden things are on the road, where a car can reach them, and
+  // the player never holds the same one twice.
+  for (const item of session.gold?.items ?? []) {
+    if (![item.x, item.z, item.y].every(Number.isFinite)) note(theme, `a golden ${item.kind} is nowhere`);
+    if (Math.abs(item.offset) > track.edgeAt(item.index, Math.sign(item.offset) || 1) - 1) note(theme, `a golden ${item.kind} is off the tarmac`);
+    if (track.dividerAt(item.index) > 0 && Math.abs(item.offset) < track.dividerAt(item.index) + 1.5) note(theme, `a golden ${item.kind} is in an island`);
+  }
+  const golds = session.player?.golds ?? [];
+  if (new Set(golds).size !== golds.length || golds.some((place) => !session.gold.items[place]?.taken)) note(theme, 'the golden things were miscounted');
+
+  // The villain leaves little behind him, and never a mess.
+  const slicks = session.villain?.slicks ?? [];
+  if (slicks.length > 2) note(theme, `${slicks.length} of the villain's slicks at once`);
+  for (const slick of slicks) {
+    if (![slick.x, slick.z, slick.y].every(Number.isFinite)) note(theme, 'a slick is nowhere');
+  }
+
   // Rivals must not get stuck: each should cover ground in any half minute
   // it is free to move, however the player is behaving.
   if (session.phase === 'racing' && session.time - memo.at >= 30) {
@@ -134,7 +151,7 @@ for (const theme of TRACKS) {
         rules: level,
         random,
         drivers: [
-          ...level.rivals.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}`, attack: ATTACKS[i] })),
+          ...level.rivals.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}`, attack: i === 0 ? null : ATTACKS[i], villain: i === 0 })),
           { name: kind, isPlayer: true, lane: 0, pace: 1, attack: ATTACKS[race % 3], auto: !drive },
         ],
       });

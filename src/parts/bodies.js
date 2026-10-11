@@ -101,6 +101,33 @@ function tub() {
   return k.node;
 }
 
+/** Premium: a hot rod. A long nose, the engine out in the open, and gold wherever gold will go. */
+function hotRod() {
+  const k = kit();
+  k.box('paint', [1.05, 0.34, 2.8], {
+    at: [0, 0.14, 0.05],
+    r: 0.12,
+    deform: (p) => {
+      p[0] *= 1 - 0.34 * Math.max(0, p[2] / 2.8 + 0.1); // narrow toward the nose
+    },
+  });
+  // The cab, sat well back.
+  k.box('paint', [1.1, 0.5, 0.95], { at: [0, 0.54, -0.8], r: 0.14, deform: taperTop(0.5, 0.82, 0.78, -0.04) });
+  k.slab('glass', [0.8, 0.24, 0.04], { at: [0, 0.6, -0.3], rot: [-0.32, 0, 0] });
+  // The engine, with an air scoop and two pipes a side.
+  k.slab('dark', [0.46, 0.24, 0.72], { at: [0, 0.42, 0.5] });
+  k.cyl('gold', { r: 0.17, r2: 0.13, len: 0.2, seg: 6, caps: 'start', axis: 'y' }, { at: [0, 0.64, 0.5] });
+  for (const side of [1, -1]) {
+    for (const z of [0.3, 0.7]) {
+      k.cyl('gold', { r: 0.06, len: 0.46, seg: 4, caps: 'none', axis: 'y' }, { at: [side * 0.36, 0.5, z], rot: [0, 0, -side * 0.6] });
+    }
+  }
+  // A gold grille, and a flame along each flank.
+  k.slab('gold', [0.52, 0.24, 0.05], { at: [0, 0.14, 1.45] });
+  k.slab('accent', [1.07, 0.11, 1.5], { at: [0, 0.2, 0.2] });
+  return k.node;
+}
+
 export const BODIES = [
   {
     id: 'kart',
@@ -139,6 +166,19 @@ export const BODIES = [
       rearTop: [0, 0.63, -1.05],
       rear: [0, 0.3, -1.3],
       side: [0.72, 0.5, 0],
+    },
+  },
+  {
+    id: 'hot-rod',
+    name: 'Hot Rod',
+    unit: hotRod,
+    mounts: {
+      axles: { front: 1.05, rear: -0.85, halfWidth: 0.55 },
+      top: [0, 0.8, -0.8],
+      front: [0, 0.1, 1.46],
+      rearTop: [0, 0.74, -1.18],
+      rear: [0, 0.2, -1.34],
+      side: [0.56, 0.2, -0.25],
     },
   },
   {

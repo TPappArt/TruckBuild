@@ -1,5 +1,5 @@
 import { BODIES } from './bodies.js';
-import { EXTRAS } from './extras.js';
+import { EXTRAS, SPECIAL_EXTRAS } from './extras.js';
 import { WEAPONS } from './weapons.js';
 import { WHEELS } from './wheels.js';
 
@@ -53,9 +53,23 @@ const PRICES = {
 
 export const priceOf = (part) => PRICES[part.id] ?? 0;
 
+// Premium parts are not for sale for coins at all. They cost golden things,
+// of which there are three hidden on every track (race/gold.js): fifteen in
+// the whole game, and these come to fourteen.
+const GOLD_PRICES = {
+  'gold-rims': 3,
+  'hot-rod': 4,
+  'champion-wing': 3,
+  'fizz-cannon': 4,
+};
+
+/** What a premium part costs in golden things; 0 for an ordinary part. */
+export const goldPriceOf = (part) => GOLD_PRICES[part.id] ?? 0;
+export const isPremium = (part) => goldPriceOf(part) > 0;
+
 /** The parts a new player owns, as 'category/part' keys. */
 export const STARTER_PARTS = CATEGORIES.flatMap((category) =>
-  category.parts.filter((part) => priceOf(part) === 0).map((part) => `${category.id}/${part.id}`),
+  category.parts.filter((part) => priceOf(part) === 0 && !isPremium(part)).map((part) => `${category.id}/${part.id}`),
 );
 
 export const partKey = (categoryId, partId) => `${categoryId}/${partId}`;
@@ -68,9 +82,12 @@ export const DEFAULT_BUILD = {
   paint: PAINTS[0].hex,
 };
 
+// Parts nobody can buy or pick: they are fitted to one particular car.
+export const SPECIAL = { extra: SPECIAL_EXTRAS };
+
 export function findPart(categoryId, partId) {
   const category = CATEGORIES.find((entry) => entry.id === categoryId);
-  return category?.parts.find((part) => part.id === partId) ?? null;
+  return category?.parts.find((part) => part.id === partId) ?? SPECIAL[categoryId]?.find((part) => part.id === partId) ?? null;
 }
 
 /**

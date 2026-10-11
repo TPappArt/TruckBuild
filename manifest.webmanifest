@@ -1,6 +1,6 @@
 {
-  "name": "TruckBuild",
-  "short_name": "TruckBuild",
+  "name": "Fizzbang Rally",
+  "short_name": "Fizzbang",
   "start_url": ".",
   "scope": ".",
   "display": "fullscreen",

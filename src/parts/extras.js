@@ -103,10 +103,48 @@ function sidePipe() {
   return k.node;
 }
 
+/** Premium: a winner's wing. Two decks of gold, and a star on top. */
+function championWing() {
+  const k = kit();
+  for (const side of [1, -1]) {
+    k.slab('dark', [0.08, 0.64, 0.16], { at: [side * 0.36, 0.3, -0.02], rot: [-0.15, 0, 0] });
+    k.prism('gold', [[-0.34, -0.3], [0.22, -0.3], [0.3, 0.02], [0.06, 0.2], [-0.34, 0.2]], { depth: 0.06, axis: 'x' }, { at: [side * 0.8, 0.52, -0.1] });
+  }
+  k.box('gold', [1.56, 0.08, 0.46], { at: [0, 0.64, -0.12], rot: [0.14, 0, 0], r: 0.04 });
+  k.slab('gold', [1.5, 0.06, 0.32], { at: [0, 0.36, -0.06], rot: [0.1, 0, 0] });
+  k.slab('red', [0.3, 0.09, 0.47], { at: [0, 0.64, -0.12], rot: [0.14, 0, 0] });
+  const star = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = Math.PI / 2 + (i / 10) * TAU;
+    const radius = i % 2 ? 0.09 : 0.22;
+    star.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+  }
+  k.prism('accent', star, { depth: 0.07, axis: 'z' }, { at: [0, 0.92, -0.16] });
+  return k.node;
+}
+
+/** The villain's: a top hat with a gold band, and a brass horn to go with his name. */
+function topHat() {
+  const k = kit();
+  const felt = 'dark';
+  k.cyl(felt, { r: 0.62, len: 0.07, seg: 12, axis: 'y' }, { at: [0, 0.035, 0] });
+  k.cyl(felt, { r: 0.44, r2: 0.4, len: 0.78, seg: 12, caps: 'start', axis: 'y' }, { at: [0, 0.46, 0] });
+  k.cyl('gold', { r: 0.425, len: 0.16, seg: 12, caps: 'none', axis: 'y' }, { at: [0, 0.17, 0] });
+  // The horn: a brass bell on a stalk, with a rubber bulb.
+  k.cyl('gold', { r: 0.05, len: 0.5, seg: 6, caps: 'none', axis: 'z' }, { at: [0.6, 0.22, 0.2] });
+  k.lathe('gold', [[0.05, 0], [0.12, 0.14], [0.26, 0.24]], { seg: 10, axis: 'z' }, { at: [0.6, 0.22, 0.45] });
+  k.ball('red', { r: 0.14, seg: 6, rings: 4 }, { at: [0.6, 0.22, -0.1] });
+  return k.node;
+}
+
+// Parts that are not for sale: they belong to somebody (race/grid.js).
+export const SPECIAL_EXTRAS = [{ id: 'top-hat', name: 'Top Hat', slot: 'top', unit: topHat }];
+
 export const EXTRAS = [
   { id: 'spoiler', name: 'Spoiler', slot: 'rearTop', unit: spoiler },
   { id: 'glider-wings', name: 'Glider Wings', slot: 'side', unit: gliderWing },
   { id: 'booster', name: 'Rocket Booster', slot: 'rear', unit: booster },
   { id: 'shark-fin', name: 'Shark Fin', slot: 'rearTop', unit: sharkFin },
   { id: 'side-pipes', name: 'Side Pipes', slot: 'side', unit: sidePipe },
+  { id: 'champion-wing', name: 'Champion Wing', slot: 'rearTop', unit: championWing },
 ];

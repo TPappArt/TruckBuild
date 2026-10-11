@@ -72,6 +72,19 @@ const FACES = {
     <path d="M19 41l5 2 4-3 4 3 4-3 4 3 5-2c-2 7-7 10-13 10s-11-3-13-10z" fill="${INK}"/>`,
 };
 
+// The villain (race/grid.js). Not one of the drivers a player can be.
+FACES.baron = `
+    <path d="M14 36c0-12 8-19 18-19s18 7 18 19c0 11-7 19-18 19S14 47 14 36z" fill="#e9c9a8"/>
+    <rect x="18" y="3" width="28" height="19" rx="2" fill="#17131f"/>
+    <rect x="18" y="15" width="28" height="5" fill="#ffc928"/>
+    <rect x="9" y="20" width="46" height="6" rx="3" fill="#17131f"/>
+    <path d="M19 30l9 3M45 30l-9 3" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="24" cy="36" r="2.6" fill="${INK}"/>
+    <circle cx="40" cy="36" r="6" fill="#bfe9ff" stroke="#ffc928" stroke-width="2.4"/><circle cx="40" cy="36" r="2.4" fill="${INK}"/>
+    <path d="M45 41l4 12" stroke="#ffc928" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M32 45c-4-5-10-3-12 0-3 4-8 3-10-1 1 8 9 10 14 7 3-2 6-3 8-1 2-2 5-1 8 1 5 3 13 1 14-7-2 4-7 5-10 1-2-3-8-5-12 0z" fill="#17131f"/>`;
+export const VILLAIN = { id: 'baron', name: 'Baron Honk', badge: '#6a3fb5' };
+
 export const CHARACTERS = [
   { id: 'boy', name: 'Boy', badge: '#2f9bff' },
   { id: 'girl', name: 'Girl', badge: '#ffb3d1' },
@@ -92,7 +105,7 @@ export const findCharacter = (id) => CHARACTERS.find((character) => character.id
 
 /** SVG markup for a character's badge. */
 export function characterSvg(id) {
-  const character = findCharacter(id);
+  const character = id === VILLAIN.id ? VILLAIN : findCharacter(id);
   return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="${character.badge}"/>${FACES[character.id]}</svg>`;
 }
 

@@ -1,8 +1,8 @@
-# TruckBuild
+# Fizzbang Rally
 
 A low-poly build-and-race game for the browser, on desktop and mobile,
 fullscreen. You start by building a truck, car, tank or stranger contraption
-from parts, then race it. "TruckBuild" is a working title; see
+from parts, then race it. The name is one command to change; see
 [Renaming the game](#renaming-the-game).
 
 **What exists so far:** the build phase, the first race type, and the
@@ -13,20 +13,28 @@ things that hold them together: a driver, coins, a shop and tracks to open.
 - **Garage:** pick one part from each of four categories and see the result
   on a turntable. A new player owns a starter set; the rest are bought with
   coins.
-- **Race:** a two-lap circuit race against three computer rivals in random
-  contraptions, at one of three difficulties, on one of five tracks. Random
-  events on the road (pickups, hazards, trampolines and strips), a dangerous
-  landmark on each track, bridges, tunnels and two-lane stretches, and
-  working weapons shake things up. Two more race types are planned.
+- **Race:** a two-lap circuit race against three computer rivals, at one of
+  three difficulties, on one of five tracks. One of the three is always the
+  villain, [Baron Honk](#the-villain); the other two turn up in random
+  contraptions. Random events on the road (pickups, hazards, trampolines and
+  strips), a dangerous landmark on each track, bridges, tunnels and two-lane
+  stretches, and working weapons shake things up. Two more race types are
+  planned.
+- **Golden things:** three hidden on every track, which buy the four
+  [premium parts](#golden-things-and-premium-parts).
+- **Sound:** music for the garage and for each track, and a sound for
+  everything that happens, all [made by the game as it goes](#sound-and-music).
+- **Settings:** music and sound volume, how far back the camera rides and
+  how wide its view is. See [Settings](#settings).
 - **Installers:** an Android app and a Windows setup program, built and
   tried out by a workflow. See [Installing it](#installing-it).
 
-| Category | Parts (price in coins) |
-| --- | --- |
-| Wheels | Kart Wheels (free), Monster Wheels (150), Spider Legs (220), Tank Treads (260), Mech Legs (340) |
-| Body | Kart (free), Pickup (120), Bug (160), Bulldog (220), Tub (280) |
-| Extras (optional) | Spoiler (60), Shark Fin (80), Side Pipes (120), Glider Wings (180), Rocket Booster (260) |
-| Weapons (optional) | Twin Blaster (free), Flipper (140), Hammer (200), Buzz Saw (240), Cannon (300) |
+| Category | Parts (price in coins) | Premium (price in golden things) |
+| --- | --- | --- |
+| Wheels | Kart Wheels (free), Monster Wheels (150), Spider Legs (220), Tank Treads (260), Mech Legs (340) | Gold Rims (3) |
+| Body | Kart (free), Pickup (120), Bug (160), Bulldog (220), Tub (280) | Hot Rod (4) |
+| Extras (optional) | Spoiler (60), Shark Fin (80), Side Pipes (120), Glider Wings (180), Rocket Booster (260) | Champion Wing (3) |
+| Weapons (optional) | Twin Blaster (free), Flipper (140), Hammer (200), Buzz Saw (240), Cannon (300) | Fizz Cannon (4) |
 
 Any part fits any body: bodies declare mount points and parts attach to them.
 
@@ -61,8 +69,34 @@ outright:
 | Zombie City | Haunted Hollow | 600 |
 
 Everything about a player is kept in the browser (`localStorage`, see
-`src/profile.js`): driver, coins, parts owned, tracks open, wins and the
-current build. Nothing is sent anywhere. Clearing site data starts again.
+`src/profile.js`): driver, coins, parts owned, tracks open, wins, golden
+things found, settings and the current build. Nothing is sent anywhere.
+Clearing site data starts again.
+
+### Golden things and premium parts
+
+Every track has three golden things on it: a star, a spanner and a crown.
+They are always in the same three places, out toward the kerb where it takes
+a little steering to fetch them, and each can be picked up once, ever. One
+is the player's from the moment the car touches it, whether or not the race
+is finished. The stars under the coin count during a race, and in the corner
+of each track's picture, show which have been found; the minimap shows where
+the rest are (`src/race/gold.js`).
+
+Golden things buy the four premium parts, which coins cannot. There are
+fifteen in the game and the four parts cost fourteen between them, so
+nothing has to be chosen between: find them all and everything can be had.
+Spending never takes a golden thing away (the stars stay lit); what has been
+spent is worked out from which premium parts are owned.
+
+| Premium part | Costs | |
+| --- | --- | --- |
+| Gold Rims | 3 | whitewall tyres on gold rims |
+| Champion Wing | 3 | two decks of gold and a star |
+| Hot Rod | 4 | long nose, the engine out in the open |
+| Fizz Cannon | 4 | a bottle of fizz that fires its cork, and reloads in 7 seconds rather than 10 |
+
+Rivals never have premium parts: they are the player's to show off.
 
 ## Running it
 
@@ -87,12 +121,12 @@ nothing to sign in to and nothing is sent anywhere.
 
 | | File | What it is |
 | --- | --- | --- |
-| Android | `TruckBuild.apk` | An app for Android 6 and newer, about a quarter of a megabyte. It asks for no permissions at all, not even the network. |
-| Windows | `TruckBuild-Setup.exe` | A setup program for Windows 10 and 11. Installs for the current user (no administrator password), with Start menu and desktop shortcuts and an entry under "Installed apps" to remove it. |
-| Windows | `TruckBuild.exe` | The same game as one program that runs where it is, with no setup. |
+| Android | `FizzbangRally.apk` | An app for Android 6 and newer, about a quarter of a megabyte. It asks for no permissions at all, not even the network. |
+| Windows | `FizzbangRally-Setup.exe` | A setup program for Windows 10 and 11. Installs for the current user (no administrator password), with Start menu and desktop shortcuts and an entry under "Installed apps" to remove it. |
+| Windows | `FizzbangRally.exe` | The same game as one program that runs where it is, with no setup. |
 
-**Where they come from.** Pushing a version tag (`git tag v0.5.0 && git push
-origin v0.5.0`) runs the *Installers* workflow, which builds all three,
+**Where they come from.** Pushing a version tag (`git tag v0.7.0 && git push
+origin v0.7.0`) runs the *Installers* workflow, which builds all three,
 installs and starts the Android app on an emulator, installs, runs and
 removes the Windows one on a Windows machine, and puts the files in a draft
 release for someone to look over and publish. It can also be started by hand
@@ -111,7 +145,9 @@ every Windows 10 and 11 machine has (or Chrome, or failing both the default
 browser). The program serves the game to that window from inside itself, to
 this computer only, and stops when the window is closed. Saved games are
 kept in a browser profile of the game's own
-(`%LOCALAPPDATA%\TruckBuild\Profile`); uninstalling removes them.
+(`%LOCALAPPDATA%\truckbuild\Profile`, named after the game's first working
+title so that renaming the game never loses them); uninstalling removes
+them.
 
 **Building them yourself.**
 
@@ -191,7 +227,9 @@ fences, bunting, arrow boards) is in `src/race/dressing.js`.
    extras and weapons that is the attachment point.
 2. Add an entry to that file's exported list with an `id`, a `name` and, for
    extras and weapons, the body mount it uses (`slot`).
-3. Run `npm run check`.
+3. Give it a price in `src/parts/catalog.js`: coins in `PRICES`, or golden
+   things in `GOLD_PRICES` to make it a premium part.
+4. Run `npm run check`.
 
 A new body also needs `mounts`: where the axles, weapons and extras attach.
 `src/parts/bodies.js` documents them.
@@ -257,7 +295,7 @@ only; weapons work (below).
 
 | Weapon | In a race |
 | --- | --- |
-| Twin Blaster, Cannon | Fired with the fire button, then 10 seconds to reload. The shot follows the road and drifts toward the nearest car ahead, so aiming is forgiving. |
+| Twin Blaster, Cannon, Fizz Cannon | Fired with the fire button, then 10 seconds to reload (7 for the Fizz Cannon). The shot follows the road and drifts toward the nearest car ahead, so aiming is forgiving. |
 | Hammer, Buzz Saw, Flipper | Always on. Any car that comes within about 3.5 m of the front of yours gets knocked. |
 
 A hit does exactly what a bomb does: the car is tossed in the air and loses
@@ -271,7 +309,7 @@ The player picks a difficulty on the track picker (`src/race/grid.js`):
 
 | | Easy | Medium | Hard |
 | --- | --- | --- | --- |
-| Rivals' pace, as a share of a good driver's | 52 to 66% | 68 to 80% | 87 to 98% |
+| Rivals' pace, as a share of a good driver's | 50 to 63% | 68 to 80% | 87 to 98% |
 | Clumsy moments (foot off, drifting off line) | every few seconds | now and then | rare |
 | A rival ahead of the player | slows right down and waits | eases off | barely lifts |
 | Trigger finger | slow | middling | quick |
@@ -279,6 +317,28 @@ The player picks a difficulty on the track picker (`src/race/grid.js`):
 
 Easy is for young children: the rivals are meant to lose to anyone who keeps
 the car roughly on the road. On Hard they drive properly and do not wait.
+
+### The villain
+
+One rival is in every race: **Baron Honk**, in a top hat, in the same purple
+car each time so that he is known at a glance. He starts on pole and drives
+as the quickest rival of whichever difficulty is being played, with four
+differences, all of them aimed at the player and all of them mild
+(`VILLAIN` in `src/race/session.js`):
+
+| | |
+| --- | --- |
+| He blocks | Just ahead of the player, he drifts over to whichever side of the road the player is on. He only looks in his mirror about once a second, so a change of side gets past him. |
+| He lurks | He waits for the player sooner than the other rivals do, and tries a little harder to catch up, so he is usually somewhere near. |
+| He drips | When he is a little way ahead, every ten seconds or so he leaves a small purple slick behind him. It only ever catches the player, for half as long as a proper oil patch, and it is gone after one car or nine seconds. |
+| He tires | Over the last third of the last lap he eases off, so that a player who has kept up gets to go past him at the end. (Less so the harder the level.) |
+
+He has no weapon. He also talks: where the other drivers say one short word,
+he says three or four, always at the player, by name where it fits, and
+never kindly ("My granny drives faster!", "You drive like soup!"). He
+sounds his horn first. What he says and when is in `src/race/chatter.js`.
+
+`npm run simulate` and `npm run fuzz` both race against him.
 
 ### Track events
 
@@ -425,7 +485,7 @@ layout.
 
 ### The start screen
 
-Behind the title and the Play button the player's own car and the rivals
+Behind the logo and the Play button the player's own car and the rivals
 come over the brow of a hill and jump at the camera, which lies in the road
 at the bottom looking up through a wide lens. Most land just in front of it
 and tear past; one goes over the top. Their time in the air is slowed down,
@@ -440,6 +500,84 @@ going while the page is busy building a track.
 
 Someone who has asked their device for less movement gets one held frame of
 the scene and no lines.
+
+### The logo and the icon
+
+The logo is drawn by `src/ui/logo.js` as SVG, around whatever the game is
+called: the last word of the name goes on the ribbon and the rest across the
+middle in big letters, so it survives a rename. Behind the letters are a
+bottle of fizz that has just popped its own cork, a tyre and a chequered
+flag. The letters are ordinary text in the game's font, stacked in layers to
+look solid: a shadow, a gold side for depth, a gold trim, a dark outline,
+the face of the letter and a shine. There are two arrangements, one for wide
+screens and one for tall; the stylesheet shows whichever fits.
+
+The app icon is the bottle looking out of the tyre. `npm run icons` writes
+it to `icons/icon.svg` (rounded, with a gold edge) and
+`icons/icon-maskable.svg` (filling the square, for Android to crop). The
+other icon files are those two drawn at fixed sizes, a step nothing in the
+project can do for itself; open the SVG in a browser or an image editor and
+export:
+
+| File | From | Size |
+| --- | --- | --- |
+| `icons/icon-192.png`, `icons/icon-512.png` | `icon.svg` | 192, 512 |
+| `icons/icon-maskable-512.png` | `icon-maskable.svg` | 512 |
+| `icons/apple-touch-icon.png` | `icon-maskable.svg`, with the picture a little larger | 180 |
+| `android/res/mipmap-*/ic_launcher.png` | `icon.svg` | 48, 72, 96, 144, 192 |
+| `desktop/truckbuild.ico` | `icon.svg` | 16 to 256 in one file |
+
+## Sound and music
+
+There are no audio files. Every sound is made when it is wanted with the
+browser's Web Audio (`src/audio/`), which keeps the game small and lets it
+work offline.
+
+- **`core.js`** is the plumbing: one audio context, a volume control each
+  for music and for effects, a limiter so that several loud things at once
+  squash rather than crackle, and the two building blocks everything else
+  is made of, a tone and a burst of filtered noise.
+- **`sounds.js`** has a recipe for each sound effect, a few tones and
+  bursts apiece: buttons, the countdown, every pickup and hazard, weapons,
+  bumps and scrapes, laps, and a fanfare for the finish.
+- **`songs.js`** is the music, written out as patterns: a tune for the
+  garage and menus and one for each track (a snake charmer's scale for the
+  desert, sleigh bells for the mountains, something minor and wobbly for
+  the haunted one). Tunes are written against the chord under them rather
+  than as fixed notes, so a bar can be reused over every chord and still
+  fit. **`music.js`** plays them, a quarter of a second ahead on the audio
+  clock so that the beat holds while the page is busy. Each song is eight
+  bars; it is played three ways in turn (the tune, the tune with a second
+  voice, then no tune) so that it does not wear thin so quickly.
+- **`index.js`** is what the rest of the game talks to. During a race it is
+  shown the session once a frame and works out for itself what has just
+  happened: an engine note that follows the revs, wind, tyres sliding, the
+  rumble of being off the road, and one-off sounds for everything else.
+  Things that happen to other cars are heard too, quieter the further away.
+
+Browsers only allow sound once the player has touched the page, so nothing
+is built until Play is pressed. With no Web Audio the game is silent and
+otherwise the same.
+
+The music and the effects were written and balanced by measurement (how
+loud, whether anything clips), not by ear. Treat the tunes as a first draft.
+
+## Settings
+
+The slider button in the garage, and the pause button in a race, open the
+settings (`src/settings.js`, `src/ui/settings.js`):
+
+| Setting | From | To |
+| --- | --- | --- |
+| Music | off | loud |
+| Sounds | off | loud |
+| Camera distance | near (70% of the usual) | far (150%) |
+| Field of view | narrow (80%) | wide (125%) |
+
+A race stands still while they are open, and the view behind keeps being
+drawn, so the two camera sliders can be judged as they move. Settings are
+kept with the player's profile. Adding an entry to the list in
+`src/settings.js` adds its slider.
 
 ## 3D engine
 
@@ -528,15 +666,18 @@ styles/main.css         layout for portrait and landscape, safe areas, touch
 src/config.js           game name, laps, triangle budget, tuning constants
 src/main.js             boot, and moving between the garage and a race
 src/intro.js            the scene behind the start screen: cars jumping a hill at the camera
-src/profile.js          what is remembered about a player: driver, coins, parts, tracks
+src/profile.js          what is remembered about a player: driver, coins, parts, tracks, gold, settings
+src/settings.js         what the player can adjust: volumes and the camera
+src/audio/              sound effects and music, all synthesised: core, sounds, songs, music, index
 src/characters.js       the drivers a player can be, drawn as SVG faces
 src/vehicle.js          assembles a vehicle from a build
 src/parts/              the part catalogue, prices, and the kit parts are modelled with
 src/garage/             build phase: turntable scene, thumbnails, picker and shop
-src/ui/                 character screen, loading screen, windscreen effects, icons
+src/ui/                 character and settings screens, loading screen, windscreen effects, icons, the logo
 src/race/car.js         driving model, computer driver, collisions
-src/race/session.js     race rules: grid, countdown, laps, places, finish
-src/race/grid.js        who lines up: difficulty levels, rivals' names, faces and builds
+src/race/session.js     race rules: grid, countdown, laps, places, finish, and what the villain gets up to
+src/race/grid.js        who lines up: difficulty levels, the villain, rivals' names, faces and builds
+src/race/gold.js        the three golden things on each track
 src/race/rewards.js     what a race pays in coins
 src/race/events.js      random track events: pickups, hazards, trampolines, strips
 src/race/features.js    each track's landmark: where it is and what stands in the road
@@ -559,8 +700,8 @@ src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking
 src/governor.js         lowers the pixel density on devices that cannot keep up
 src/loop.js             frame loop, paused while the tab is hidden
-icons/                  placeholder icons
-scripts/                dev server, checks (parts, tracks, contrast), race simulation and fuzz, packaging, rename
+icons/                  the app icon, as SVG and at the sizes browsers ask for
+scripts/                dev server, checks (parts, tracks, contrast), race simulation and fuzz, packaging, rename, icons
 android/                the Android app: one WebView round the game, its build and its test
 desktop/                the Windows app: a launcher with the game inside it, and its setup program
 .github/workflows/      checks on every push; installers built and tried on a version tag
@@ -573,5 +714,6 @@ npm run rename -- "New Game Name"
 ```
 
 This updates `src/config.js`, `index.html`, `manifest.webmanifest`,
-`package.json` and this README. It does not rename the repository folder or
-change a git remote.
+`package.json`, the installers' names and this README. The logo redraws
+itself around the new name. It does not rename the repository folder or
+change a git remote, and saved games are kept.

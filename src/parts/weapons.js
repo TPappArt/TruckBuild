@@ -1,3 +1,4 @@
+import { material } from '../engine/materials.js';
 import { kit } from './kit.js';
 
 // Weapons. Each is modelled around its own attachment point (the origin) and
@@ -7,6 +8,7 @@ import { kit } from './kit.js';
 //
 // `attack` says what the weapon does in a race (see race/combat.js):
 //   { type: 'shot', shot }   fired with the fire button, then reloads
+//                            (`reload` seconds, if not the usual)
 //   { type: 'melee', reach } always on: knocks any car that comes within
 //                            `reach` metres of the front of this one
 // Either way, a hit does what a bomb does.
@@ -37,6 +39,22 @@ function cannon() {
   gun.cyl('accent', { r: 0.115, len: 0.08, caps: 'none', axis: 'z' }, { at: [0, 0, 0.5] });
   gun.cyl('red', { r: 0.15, len: 0.22, axis: 'z' }, { at: [0, 0, 1.12] });
   gun.disc('dark', { r: 0.08, axis: 'z' }, { at: [0, 0, 1.235] });
+  return k.node;
+}
+
+const bottleGlass = material('#1f7a45', { spec: 0.9, shine: 80 });
+const corkWood = material('#d9a866', { spec: 0.1 });
+
+/** Premium: a bottle of fizz on a cradle, shaken and ready. It fires its cork. */
+function fizzCannon() {
+  const k = kit();
+  k.slab('dark', [0.5, 0.12, 0.6], { at: [0, 0.06, 0.05] });
+  k.slab('gold', [0.12, 0.2, 0.5], { at: [0, 0.2, 0.05] });
+  const bottle = k.sub({ at: [0, 0.42, 0.05], rot: [-0.22, 0, 0] });
+  bottle.lathe(bottleGlass, [[0, -0.45], [0.2, -0.45], [0.2, 0.2], [0.08, 0.5], [0.08, 0.78]], { seg: 10, axis: 'z' });
+  bottle.cyl('white', { r: 0.205, len: 0.3, seg: 10, caps: 'none', axis: 'z' }, { at: [0, 0, -0.1] });
+  bottle.cyl('gold', { r: 0.09, len: 0.26, seg: 10, caps: 'none', axis: 'z' }, { at: [0, 0, 0.62] });
+  bottle.cyl(corkWood, { r: 0.1, r2: 0.075, len: 0.16, seg: 8, axis: 'z' }, { at: [0, 0, 0.86] });
   return k.node;
 }
 
@@ -93,6 +111,7 @@ function buzzSaw() {
 export const WEAPONS = [
   { id: 'blaster', name: 'Twin Blaster', slot: 'top', unit: blaster, attack: { type: 'shot', shot: 'bolts' } },
   { id: 'cannon', name: 'Cannon', slot: 'top', unit: cannon, attack: { type: 'shot', shot: 'shell' } },
+  { id: 'fizz-cannon', name: 'Fizz Cannon', slot: 'top', unit: fizzCannon, attack: { type: 'shot', shot: 'cork', reload: 7 } },
   { id: 'flipper', name: 'Flipper', slot: 'front', unit: flipper, attack: { type: 'melee', reach: 3.8 } },
   { id: 'hammer', name: 'Hammer', slot: 'top', unit: hammer, attack: { type: 'melee', reach: 3.4 } },
   { id: 'buzz-saw', name: 'Buzz Saw', slot: 'front', unit: buzzSaw, attack: { type: 'melee', reach: 3.6 } },

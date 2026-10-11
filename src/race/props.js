@@ -111,6 +111,50 @@ export const coinsGeometry = () =>
     return k.node;
   });
 
+// ---------- Golden things (gold.js) ----------
+
+const gold = material('#ffc21a', { spec: 1, shine: 50, glow: 0.45 });
+const goldDeep = material('#e08a00', { spec: 0.8, shine: 40, glow: 0.3 });
+const jewel = material('#ff4a6a', { glow: 0.7 });
+
+/** One of a track's three golden things: 'star', 'spanner' or 'crown'. Floats and spins. */
+export const goldGeometry = (kind) =>
+  once(`gold-${kind}`, () => {
+    const k = kit();
+    if (kind === 'star') {
+      const points = [];
+      for (let i = 0; i < 10; i++) {
+        const angle = Math.PI / 2 + (i / 10) * Math.PI * 2;
+        const r = i % 2 ? 0.52 : 1.2;
+        points.push([Math.cos(angle) * r, Math.sin(angle) * r]);
+      }
+      k.prism(gold, points, { depth: 0.34, axis: 'z' });
+      k.prism(goldDeep, points.map(([x, y]) => [x * 0.55, y * 0.55]), { depth: 0.44, axis: 'z' });
+    } else if (kind === 'spanner') {
+      // A spanner standing on end: a shaft with a jaw at the top and a ring at the bottom.
+      k.box(gold, [0.3, 1.5, 0.2], { at: [0, 0, 0], r: 0.06 });
+      k.prism(
+        gold,
+        [[-0.52, 0.5], [-0.52, 1.05], [-0.24, 1.3], [-0.2, 0.86], [0.2, 0.86], [0.24, 1.3], [0.52, 1.05], [0.52, 0.5], [0.18, 0.34], [-0.18, 0.34]],
+        { depth: 0.26, axis: 'z' },
+      );
+      k.lathe(goldDeep, [[0.2, 0.14], [0.48, 0.14], [0.48, -0.14], [0.2, -0.14], [0.2, 0.14]], { seg: 10, axis: 'z' }, { at: [0, -0.92, 0] });
+    } else {
+      // A crown: a band, five points and a jewel on each.
+      // (The band has an inside as well as an outside: it is seen from every side.)
+      k.lathe(gold, [[0.7, -0.62], [0.86, -0.62], [0.8, -0.08], [0.68, -0.08], [0.7, -0.62]], { seg: 10, axis: 'y' });
+      k.lathe(goldDeep, [[0.87, -0.62], [0.87, -0.46]], { seg: 10, axis: 'y' });
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        const x = Math.sin(angle) * 0.8;
+        const z = Math.cos(angle) * 0.8;
+        k.lathe(gold, [[0.3, 0], [0, 0.7]], { seg: 4, axis: 'y' }, { at: [x, -0.1, z] });
+        k.ball(jewel, { r: 0.14, seg: 5, rings: 3 }, { at: [x, 0.66, z] });
+      }
+    }
+    return k.node;
+  });
+
 // ---------- Halos ----------
 
 // Every event is colour coded so it can be read at a glance, even by someone
@@ -154,6 +198,7 @@ const BANG_LOOKS = {
   snow: material('#ffffff', { spec: 0 }),
   bone: material('#f2efe2', { spec: 0 }),
   slime: material('#9dff4a', { glow: 0.6 }),
+  gold: material('#ffe27a', { glow: 1 }),
 };
 
 /** A ball that the scene swells up over a moment: 'blast', 'spark', 'dust', 'snow', 'bone' or 'slime'. */
@@ -176,6 +221,10 @@ export const shotGeometry = (kind) =>
     if (kind === 'shell') {
       k.ball(shell, { r: 0.5, seg: 8, rings: 5 });
       k.lathe(fire, [[0.34, -0.2], [0, -1.3]], { seg: 6, axis: 'z' });
+    } else if (kind === 'cork') {
+      // A cork, with the fizz streaming out behind it.
+      k.cyl(material('#d9a866', { spec: 0.1 }), { r: 0.42, r2: 0.3, len: 0.7, seg: 8, axis: 'z' });
+      k.lathe(material('#f4fbff', { glow: 0.9 }), [[0.3, -0.35], [0.12, -1.0], [0, -1.9]], { seg: 6, axis: 'z' });
     } else {
       for (const side of [1, -1]) k.slab(tracer, [0.16, 0.16, 1.6], { at: [side * 0.3, 0, 0] });
     }
@@ -401,6 +450,27 @@ export function oilGeometry() {
     cache.set('oil', flat.finish());
   }
   return cache.get('oil');
+}
+
+/** What the villain leaves behind him: a small purple slick, centred on the origin. */
+export function slickGeometry() {
+  if (!cache.has('slick')) {
+    const flat = createFlat();
+    const blob = (radius, cx, cz, look) => {
+      const points = [];
+      for (let i = 0; i < 9; i++) {
+        const angle = (i / 9) * Math.PI * 2;
+        const r = radius * (1 + 0.18 * Math.sin(i * 2.9 + radius));
+        points.push([cx + Math.cos(angle) * r, cz + Math.sin(angle) * r]);
+      }
+      flat.polygon(points, look);
+    };
+    blob(1.9, 0, 0, material('#3a1463', { spec: 0.9, shine: 40 }));
+    blob(0.9, 0.3, -0.2, material('#8a4fe0', { spec: 0.9, shine: 40 }));
+    blob(0.35, -0.7, 0.6, material('#c9a2ff', { spec: 0.9, shine: 40 }));
+    cache.set('slick', flat.finish());
+  }
+  return cache.get('slick');
 }
 
 /** A flat ring painted on the road in a halo colour. */

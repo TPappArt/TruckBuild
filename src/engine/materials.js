@@ -26,6 +26,8 @@ export const materials = {
   glass: material('#6fc8ff', { spec: 0.9, shine: 90 }),
   accent: material('#ffc928', { spec: 0.45, shine: 40 }),
   red: material('#f2443a', { spec: 0.45, shine: 40 }),
+  // Polished gold, for the parts that cost golden things rather than coins.
+  gold: material('#ffbf1f', { spec: 1.0, shine: 55, glow: 0.18 }),
   hot: material('#ff9a2e', { glow: 1 }),
   light: material('#fff3bf', { glow: 0.85 }),
 

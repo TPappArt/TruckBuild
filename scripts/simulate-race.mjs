@@ -52,7 +52,8 @@ for (const level of DIFFICULTIES) {
           random: seeded(100 + race),
           drivers: [
             // One of each kind of weapon, so both get exercised.
-            ...level.rivals.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}`, attack: ATTACKS[i] })),
+            // The first is the villain (grid.js), who blocks and drips.
+            ...level.rivals.map((rival, i) => ({ ...rival, name: `Rival ${i + 1}`, attack: i === 0 ? null : ATTACKS[i], villain: i === 0 })),
             // Marked as the player, so the rivals treat it as one, but
             // driven by the computer: the session only hands the wheel to
             // a human when it is given input.

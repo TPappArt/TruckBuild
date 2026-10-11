@@ -1,3 +1,4 @@
+import { createAudio } from './audio/index.js';
 import { characterSvg } from './characters.js';
 import { GAME } from './config.js';
 import { createRenderer } from './engine/renderer.js';
@@ -15,7 +16,7 @@ import { createIntro } from './intro.js';
 import { createThumbnailer } from './garage/thumbnails.js';
 import { createGarageUI } from './garage/ui.js';
 import { createLoop } from './loop.js';
-import { loadProfile, recordRace, saveProfile, trackLock, trackOpen } from './profile.js';
+import { goldLeft, goldOn, loadProfile, recordGold, recordRace, saveProfile, trackLock, trackOpen } from './profile.js';
 import { createControls } from './race/controls.js';
 import { findDifficulty, makeGrid } from './race/grid.js';
 import { createHud, createTrackPicker } from './race/hud.js';
@@ -24,7 +25,9 @@ import { createRaceScene } from './race/scene.js';
 import { TRACKS } from './race/tracks/index.js';
 import { createCharacterScreen } from './ui/character.js';
 import { createLoading, paint } from './ui/loading.js';
+import { logoSvg } from './ui/logo.js';
 import { createScreenFx } from './ui/screenfx.js';
+import { createSettingsScreen } from './ui/settings.js';
 import { createViewport } from './viewport.js';
 
 const PICTURES_KEY = 'pictures';
@@ -41,7 +44,11 @@ const startHint = $('start-hint');
 const fullscreenButton = $('fullscreen-button');
 
 document.title = GAME.name;
-$('start-title').textContent = GAME.name;
+// The title is the logo: the name stays in the heading for anything that
+// reads the page rather than looks at it. Two drawings, one for a wide
+// screen and one for a tall one; the stylesheet shows whichever fits.
+$('start-title').innerHTML = `<span class="spoken"></span>${logoSvg(GAME.name)}${logoSvg(GAME.name, { tall: true })}`;
+$('start-title').firstChild.textContent = GAME.name;
 
 function showHint(text) {
   startHint.textContent = text;
@@ -89,6 +96,52 @@ function startGame() {
   const pictures = loadPictures();
   const difficulty = () => findDifficulty(profile.difficulty);
 
+  // ---------- Sound, and the settings ----------
+
+  const audio = createAudio();
+  /** Puts one setting into effect. */
+  function applySetting(id, value) {
+    if (id === 'music' || id === 'sound') audio.setVolume(id, value);
+    else race.setCamera(profile.settings.camera, profile.settings.view);
+  }
+  for (const [id, value] of Object.entries(profile.settings)) applySetting(id, value);
+
+  // A race waits while the settings are open over it.
+  let paused = false;
+  const settingsScreen = createSettingsScreen({
+    settings: profile.settings,
+    onChange(id, value) {
+      applySetting(id, value);
+      // Something to judge the sound slider by.
+      if (id === 'sound') audio.play('coins');
+    },
+    onClose() {
+      saveProfile(profile);
+      audio.play('close');
+    },
+  });
+  function openSettings() {
+    audio.play('open');
+    if (activeScreen === 'race') {
+      paused = true;
+      audio.quiet();
+      settingsScreen.open(() => {
+        paused = false;
+      });
+    } else {
+      settingsScreen.open();
+    }
+  }
+  $('settings-button').addEventListener('click', openSettings);
+  $('pause-button').addEventListener('click', openSettings);
+
+  // Every button makes a small noise of its own.
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button');
+    if (!button || button.disabled) return;
+    audio.play(button.classList.contains('tab') ? 'tab' : 'click');
+  });
+
   // ---------- Garage ----------
 
   garage.setBuild(profile.build);
@@ -98,8 +151,12 @@ function startGame() {
     onChange(shown, category) {
       garage.setBuild(shown, category);
       saveProfile(profile);
+      if (category) audio.play('equip');
     },
-    onSpend: refreshMoney,
+    onSpend() {
+      audio.play('buy');
+      refreshMoney();
+    },
   });
 
   function refreshProfileChip() {
@@ -110,6 +167,7 @@ function startGame() {
   /** Call after coins change: everything that shows or depends on them. */
   function refreshMoney() {
     $('wallet-coins').textContent = String(profile.coins);
+    $('wallet-gold').textContent = String(goldLeft(profile));
     saveProfile(profile);
     garageUI.refresh();
     picker.refresh();
@@ -164,6 +222,10 @@ function startGame() {
 
   function showScreen(name) {
     if (activeScreen === 'race') raceQuality = view.quality;
+    if (name !== 'race') {
+      audio.quiet();
+      audio.song('garage');
+    }
     activeScreen = name;
     view.setQuality(name === 'race' ? raceQuality : 1);
     governor.reset();
@@ -194,7 +256,8 @@ function startGame() {
       loading.progress(0.2);
       await paint();
 
-      race.start({ theme, drivers: makeGrid(profile.build, profile, difficulty()), laps: GAME.laps, rules: difficulty() });
+      race.start({ theme, drivers: makeGrid(profile.build, profile, difficulty()), laps: GAME.laps, rules: difficulty(), gold: goldOn(profile, theme) });
+      banked = 0;
       loading.progress(0.85);
       await paint();
       hud.reset(race.session, race.site);
@@ -206,6 +269,7 @@ function startGame() {
       loading.progress(1);
       await sleep(Math.max(150, LOADING_AT_LEAST - (performance.now() - shownAt)));
       showScreen('race');
+      audio.song(theme.id);
     } catch (error) {
       // Better back in the garage than stuck on a loading screen.
       console.error(error);
@@ -216,6 +280,17 @@ function startGame() {
     }
   }
 
+  // Golden things are the player's from the moment they are picked up,
+  // whether or not the race is finished.
+  let banked = 0; // how many of this race's have been saved
+  function bankGold(session) {
+    const golds = session?.player.golds ?? [];
+    if (golds.length === banked) return;
+    banked = golds.length;
+    recordGold(profile, currentTrack, golds);
+    refreshMoney();
+  }
+
   function finishRace(session) {
     const rewards = raceRewards(session, difficulty());
     const opened = recordRace(profile, currentTrack, session.player.place, rewards.total);
@@ -223,12 +298,18 @@ function startGame() {
     const after = TRACKS[TRACKS.indexOf(currentTrack) + 1];
     const next = after && !trackOpen(profile, after) ? { theme: after, winsLeft: trackLock(profile, after).winsLeft } : null;
     refreshMoney();
-    hud.showResults(session, { rewards, opened, next });
+    const golds = (session.player.golds ?? []).map((place) => session.gold.items[place].kind);
+    hud.showResults(session, { rewards, opened, next, golds });
+    // The race's tune gives way to the garage's, under the fanfare.
+    audio.quiet();
+    audio.song('garage');
   }
 
   function backToGarage() {
     $('results').hidden = true;
     $('track-picker').hidden = true;
+    settingsScreen.close();
+    paused = false;
     showScreen('garage');
   }
 
@@ -253,6 +334,10 @@ function startGame() {
   // there was nothing to go back from, and the app steps aside.
   window.truckbuildBack = () => {
     if (busy) return true;
+    if (settingsScreen.isOpen) {
+      settingsScreen.close();
+      return true;
+    }
     if (activeScreen === 'race' || !$('track-picker').hidden) {
       backToGarage();
       return true;
@@ -266,6 +351,7 @@ function startGame() {
 
   refreshProfileChip();
   $('wallet-coins').textContent = String(profile.coins);
+  $('wallet-gold').textContent = String(goldLeft(profile));
 
   // ---------- First things after "Play" ----------
 
@@ -323,8 +409,13 @@ function startGame() {
         return;
       }
       const session = race.session;
-      race.update(dt, controls.read());
+      const input = controls.read();
+      // Paused (the settings are open): time stands still, but the view is
+      // still drawn, so that the camera sliders can be seen to work.
+      race.update(paused ? 0 : dt, input);
       hud.update(session, race.plates(plates));
+      if (!paused && !resultsShown) audio.race(session, hud.lines, input);
+      bankGold(session);
       // Let the car roll over the line for a moment before the results.
       if (session.phase === 'finished' && !resultsShown) {
         sinceFinish += dt;
@@ -367,6 +458,7 @@ function startGame() {
     welcome,
     makeIntro,
     view,
+    audio,
     /** True if a loading screen is coming after Play: there are track pictures still to take. */
     get loadingAhead() {
       return TRACKS.some((theme) => !pictures[theme.id]);
@@ -418,6 +510,10 @@ if (intro) {
 }
 
 startButton.addEventListener('click', async () => {
+  // Sound is only allowed once the player has tapped something: this is it.
+  game.audio.unlock();
+  game.audio.play('open');
+  game.audio.song('garage');
   // The scene as it is right now goes behind the loading screen that may
   // follow, and then the scene itself is finished with.
   let backdrop = null;

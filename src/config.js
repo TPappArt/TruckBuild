@@ -2,7 +2,7 @@
 // The name is a working title: run `npm run rename -- "New Name"` to change it
 // here and in the static files that cannot import this module.
 export const GAME = {
-  name: 'TruckBuild',
+  name: 'Fizzbang Rally',
 
   // Rendering resolution is capped so high-density phone screens do not
   // render four times the pixels for little visible gain.
@@ -31,5 +31,5 @@ export const GAME = {
   // The pictures of the tracks on the track picker are taken once and kept
   // in the browser. Raise this number whenever the tracks change how they
   // look, and every player's pictures are taken again.
-  picturesVersion: 3,
+  picturesVersion: 4,
 };

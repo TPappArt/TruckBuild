@@ -117,6 +117,22 @@ function spiderLeg() {
   return k.node;
 }
 
+/** Premium: a whitewall tyre on a polished gold rim, with a star for a wheel nut. */
+function goldRim() {
+  const k = kit();
+  k.lathe('rubber', [[0.24, 0.17], [0.36, 0.17], [0.42, 0.09], [0.42, -0.09], [0.36, -0.17], [0, -0.17]], { seg: 10 });
+  k.lathe('white', [[0.27, 0.174], [0.34, 0.174]], { seg: 10 });
+  k.lathe('gold', [[0, 0.1], [0.19, 0.12], [0.26, 0.172]], { seg: 10 });
+  const star = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * TAU;
+    const radius = i % 2 ? 0.07 : 0.17;
+    star.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+  }
+  k.prism('red', star, { depth: 0.05, axis: 'x' }, { at: [0.135, 0, 0] });
+  return k.node;
+}
+
 export const WHEELS = [
   {
     id: 'kart-wheels',
@@ -133,6 +149,14 @@ export const WHEELS = [
     drive: { type: 'wheels', radius: 0.66 },
     unit: monsterWheel,
     place: (mounts) => atCorners(monsterWheel(), mounts, 0.28, 0.66),
+  },
+  {
+    id: 'gold-rims',
+    name: 'Gold Rims',
+    rideHeight: 0.42,
+    drive: { type: 'wheels', radius: 0.42 },
+    unit: goldRim,
+    place: (mounts) => atCorners(goldRim(), mounts, 0.19, 0.42),
   },
   {
     id: 'tank-treads',

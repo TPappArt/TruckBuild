@@ -1,6 +1,6 @@
 {
-  "name": "truckbuild",
-  "version": "0.6.0",
+  "name": "fizzbang-rally",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "fuzz": "node scripts/fuzz-race.mjs",
     "package": "node scripts/package.mjs",
     "build:windows": "node scripts/build-desktop.mjs",
-    "build:android": "bash android/build.sh"
+    "build:android": "bash android/build.sh",
+    "icons": "node scripts/make-icons.mjs"
   },
   "engines": {
     "node": ">=18"

@@ -1,8 +1,9 @@
 import { characterSvg } from '../characters.js';
-import { buyTrack, trackLock, trackOpen } from '../profile.js';
-import { coinIcon, lockIcon, placeArt } from '../ui/icons.js';
+import { buyTrack, goldOn, trackLock, trackOpen } from '../profile.js';
+import { coinIcon, goldIcon, lockIcon, placeArt } from '../ui/icons.js';
 import { createChatter } from './chatter.js';
 import { RELOAD } from './combat.js';
+import { GOLD_NAMES } from './gold.js';
 import { DIFFICULTIES } from './grid.js';
 import { coinsSoFar, REWARDS } from './rewards.js';
 import { SECTORS } from './session.js';
@@ -36,6 +37,8 @@ const EVENT_NOTES = {
   slow: ['Snail! Slowed down', false],
   bomb: ['Boom!', false],
   oil: ['Oil! Slippery', false],
+  slick: ["The Baron's slick!", false],
+  gold: ['Golden thing!', 'gold'],
   trampoline: ['Boing!', true],
   'fast-strip': ['Speed strip!', true],
   'slow-strip': ['Sticky strip!', false],
@@ -79,6 +82,8 @@ export function createHud({ fx }) {
   const lap = $('hud-lap');
   const time = $('hud-time');
   const coins = $('hud-coins-count');
+  const goldSlots = $('hud-gold');
+  let goldShown = '';
   const banner = $('hud-banner');
   const toast = $('hud-toast');
   const fire = $('fire-button');
@@ -91,6 +96,10 @@ export function createHud({ fx }) {
   let chatter = createChatter();
 
   for (const holder of document.querySelectorAll('.coin')) holder.innerHTML = coinIcon;
+  for (const holder of document.querySelectorAll('.gold')) holder.innerHTML = goldIcon;
+
+  /** What each driver is saying right now (chatter.js), for the sound of it. */
+  const spoken = () => chatter.lines;
 
   /** `where` is the scene's plates(): where each racer's nameplate goes on screen. */
   function update(session, where) {
@@ -100,6 +109,19 @@ export function createHud({ fx }) {
     text(lap, `Lap ${Math.min(session.laps, Math.max(1, player.lap + 1))}/${session.laps}`);
     text(time, formatTime(player.finished ? player.finishTime : session.time));
     text(coins, String(coinsSoFar(player)));
+
+    // The track's three golden things: which the player has.
+    const gold = session.gold ? session.gold.items.map((item) => (item.found || item.taken ? '1' : '0')).join('') : '';
+    if (gold !== goldShown) {
+      goldShown = gold;
+      goldSlots.replaceChildren(
+        ...[...gold].map((have) => {
+          const slot = element('span', have === '1' ? 'gold-slot have' : 'gold-slot');
+          slot.innerHTML = goldIcon;
+          return slot;
+        }),
+      );
+    }
 
     let message = '';
     if (session.phase === 'countdown') message = String(Math.ceil(session.countdown));
@@ -113,7 +135,8 @@ export function createHud({ fx }) {
     if (event && event !== shownEvent) {
       shownEvent = event;
       const [note, tone] = EVENT_NOTES[event.kind];
-      text(toast, event.kind === 'checkpoint' ? `Checkpoint ${event.sector} of ${SECTORS - 1}` : note);
+      text(toast, event.kind === 'checkpoint' ? `Checkpoint ${event.sector} of ${SECTORS - 1}` : event.kind === 'gold' ? `${GOLD_NAMES[event.gold]}!` : note);
+      toast.classList.toggle('gold', tone === 'gold');
       toast.classList.toggle('good', tone === true);
       toast.classList.toggle('bad', tone === false);
       toast.classList.toggle('info', tone === 'info');
@@ -133,7 +156,8 @@ export function createHud({ fx }) {
     // The fire button empties when used and fills back up as the weapon reloads.
     if (!fire.hidden) {
       const left = player.reload ?? 0;
-      fire.style.setProperty('--reloaded', (1 - left / RELOAD).toFixed(3));
+      const full = player.attack?.reload ?? RELOAD;
+      fire.style.setProperty('--reloaded', (1 - left / full).toFixed(3));
       fire.classList.toggle('ready', left <= 0);
       text(fireLabel, left > 0 ? String(Math.ceil(left)) : 'Fire');
     }
@@ -153,6 +177,7 @@ export function createHud({ fx }) {
       const bubble = bubbles[i];
       if (line) {
         bubble.textContent = line.text;
+        bubble.classList.toggle('taunt', Boolean(line.taunt));
         // Each one at its own slight tilt.
         bubble.style.setProperty('--tilt', `${((i * 7 + line.text.length * 3) % 9) - 4}deg`);
       }
@@ -258,10 +283,27 @@ export function createHud({ fx }) {
       mapContext.fillStyle = racer.build?.paint || '#ffffff';
       mapContext.fill();
       mapContext.lineWidth = ring * density;
-      mapContext.strokeStyle = racer.isPlayer ? '#ffffff' : 'rgb(13 29 77 / 80%)';
+      mapContext.strokeStyle = racer.isPlayer ? '#ffffff' : racer.villain ? '#ffd23f' : 'rgb(13 29 77 / 80%)';
       mapContext.stroke();
     };
-    for (const racer of session.racers) if (!racer.isPlayer) dot(racer, 3.2, 1);
+    // Golden things still to be found here.
+    for (const item of session.gold?.items ?? []) {
+      if (item.found || item.taken) continue;
+      const [x, y] = mapPoint(item.x, item.z);
+      mapContext.fillStyle = '#ffd23f';
+      mapContext.strokeStyle = '#7a4a00';
+      mapContext.lineWidth = density;
+      mapContext.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+        const r = (i % 2 ? 1.8 : 4.2) * density;
+        mapContext.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+      }
+      mapContext.closePath();
+      mapContext.fill();
+      mapContext.stroke();
+    }
+    for (const racer of session.racers) if (!racer.isPlayer) dot(racer, racer.villain ? 3.8 : 3.2, racer.villain ? 1.6 : 1);
     dot(player, 4.6, 2);
   }
 
@@ -276,6 +318,8 @@ export function createHud({ fx }) {
   function reset(session, site) {
     finalLapStarted = null;
     shownEvent = null;
+    goldShown = '';
+    goldSlots.replaceChildren();
     banner.hidden = true;
     toast.hidden = true;
     fx.set({});
@@ -288,7 +332,7 @@ export function createHud({ fx }) {
     bubbles = session.racers.map(() => element('span', 'bubble'));
     said = session.racers.map(() => null);
     plates = session.racers.map((racer, i) => {
-      const plate = element('div', racer.isPlayer ? 'plate plate-you' : 'plate');
+      const plate = element('div', racer.isPlayer ? 'plate plate-you' : racer.villain ? 'plate plate-villain' : 'plate');
       plate.append(face(racer.character), element('span', 'plate-name', racer.name), bubbles[i]);
       plate.hidden = true;
       return plate;
@@ -300,8 +344,9 @@ export function createHud({ fx }) {
    * Fills in and shows the results sheet.
    * rewards: from raceRewards(). opened: the track this win opened, if any.
    * next: { theme, winsLeft } for the track still locked after this one, if any.
+   * golds: the golden things found in this race, by kind (gold.js).
    */
-  function showResults(session, { rewards, opened, next }) {
+  function showResults(session, { rewards, opened, next, golds = [] }) {
     const player = session.player;
     const sheet = $('results');
     sheet.dataset.place = String(player.place);
@@ -311,7 +356,7 @@ export function createHud({ fx }) {
     const rows = [...session.racers]
       .sort((a, b) => a.place - b.place)
       .map((racer) => {
-        const row = element('li', racer.isPlayer ? 'result result-you' : 'result');
+        const row = element('li', racer.isPlayer ? 'result result-you' : racer.villain ? 'result result-villain' : 'result');
         const paint = element('span', 'result-paint');
         paint.style.background = racer.build.paint;
         const badge = face(racer.character);
@@ -326,6 +371,13 @@ export function createHud({ fx }) {
       ...rewards.lines.map((line) => {
         const item = element('li');
         item.append(element('span', '', line.label), element('span', 'result-coins', `+${line.coins}`));
+        return item;
+      }),
+      ...golds.map((kind) => {
+        const item = element('li', 'result-gold');
+        const star = element('span', 'gold');
+        star.innerHTML = goldIcon;
+        item.append(element('span', '', GOLD_NAMES[kind]), star);
         return item;
       }),
     );
@@ -355,7 +407,15 @@ export function createHud({ fx }) {
     sheet.hidden = false;
   }
 
-  return { update, reset, showResults };
+  return {
+    update,
+    reset,
+    showResults,
+    /** What each driver is saying right now, in session order (null for nothing). */
+    get lines() {
+      return spoken();
+    },
+  };
 }
 
 // ---------- Track picker ----------
@@ -425,6 +485,18 @@ export function createTrackPicker({ profile, pictures, onPick, onChange }) {
         if (open && wins) {
           const cups = element('span', 'track-wins', `${wins} ${wins === 1 ? 'win' : 'wins'}`);
           art.append(cups);
+        }
+        // Its three golden things, and which have been found.
+        if (open) {
+          const found = goldOn(profile, theme);
+          const gold = element('span', 'track-gold');
+          gold.setAttribute('aria-label', `${found.filter(Boolean).length} of ${found.length} golden things found`);
+          for (const have of found) {
+            const slot = element('span', have ? 'gold-slot have' : 'gold-slot');
+            slot.innerHTML = goldIcon;
+            gold.append(slot);
+          }
+          art.append(gold);
         }
         play.append(art, element('span', 'track-name', theme.name), element('span', 'track-blurb', theme.blurb));
         play.addEventListener('click', () => onPick(theme));

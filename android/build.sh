@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the Android app: dist/TruckBuild.apk.
+# Builds the Android app: dist/FizzbangRally.apk.
 #
 #   npm run build:android
 #
@@ -62,8 +62,8 @@ javac -Xlint:-options --release 11 -classpath "$PLATFORM" -d "$OUT/classes" \
 
 "${TOOLS}zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
 "${TOOLS}apksigner" sign --ks "$KEYSTORE" --ks-pass "pass:${KEY_PASSWORD}" --ks-key-alias "$KEY_ALIAS" \
-  --out "dist/TruckBuild.apk" "$OUT/aligned.apk"
-"${TOOLS}apksigner" verify --verbose "dist/TruckBuild.apk" | head -6
-rm -f "dist/TruckBuild.apk.idsig"
+  --out "dist/FizzbangRally.apk" "$OUT/aligned.apk"
+"${TOOLS}apksigner" verify --verbose "dist/FizzbangRally.apk" | head -6
+rm -f "dist/FizzbangRally.apk.idsig"
 
-echo "Built dist/TruckBuild.apk: version ${VERSION} (${CODE}), $(du -h "dist/TruckBuild.apk" | cut -f1)"
+echo "Built dist/FizzbangRally.apk: version ${VERSION} (${CODE}), $(du -h "dist/FizzbangRally.apk" | cut -f1)"

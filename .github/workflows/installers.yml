@@ -1,8 +1,8 @@
 # Builds the installers and tries each on a real system:
 #
-#   TruckBuild.apk        Android app, installed and started on an emulator
-#   TruckBuild-Setup.exe  Windows setup program, installed, run and removed
-#   TruckBuild.exe        the same game as one Windows program, no setup
+#   FizzbangRally.apk        Android app, installed and started on an emulator
+#   FizzbangRally-Setup.exe  Windows setup program, installed, run and removed
+#   FizzbangRally.exe        the same game as one Windows program, no setup
 #
 # Runs when a version tag (v1.2.3) is pushed, and then puts the three files
 # in a draft release for someone to look over and publish. It can also be
@@ -55,7 +55,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: android-app
-          path: dist/TruckBuild.apk
+          path: dist/FizzbangRally.apk
           if-no-files-found: error
 
       - name: Let the emulator use hardware virtualisation
@@ -111,15 +111,15 @@ jobs:
       - name: Check both were made
         shell: pwsh
         run: |
-          if (-not (Test-Path 'dist\TruckBuild-Setup.exe')) { Write-Output '::error::No setup program was made.'; exit 1 }
+          if (-not (Test-Path 'dist\FizzbangRally-Setup.exe')) { Write-Output '::error::No setup program was made.'; exit 1 }
           Get-ChildItem dist\*.exe | ForEach-Object { Write-Output "::notice title=Windows build::$($_.Name): $([math]::Round($_.Length / 1MB, 1)) MB" }
 
       - uses: actions/upload-artifact@v6
         with:
           name: windows-installer
           path: |
-            dist/TruckBuild-Setup.exe
-            dist/TruckBuild.exe
+            dist/FizzbangRally-Setup.exe
+            dist/FizzbangRally.exe
           if-no-files-found: error
 
       - name: Install it, run it, remove it
@@ -151,9 +151,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
-            --title "TruckBuild ${GITHUB_REF_NAME#v}" \
-            --notes "Android: install TruckBuild.apk. Windows: run TruckBuild-Setup.exe, or just run TruckBuild.exe without installing. Both were built and tried by the Installers workflow." \
-            "out/TruckBuild.apk" "out/TruckBuild-Setup.exe" "out/TruckBuild.exe"
+            --title "Fizzbang Rally ${GITHUB_REF_NAME#v}" \
+            --notes "Android: install FizzbangRally.apk. Windows: run FizzbangRally-Setup.exe, or just run FizzbangRally.exe without installing. Both were built and tried by the Installers workflow." \
+            "out/FizzbangRally.apk" "out/FizzbangRally-Setup.exe" "out/FizzbangRally.exe"
 
   # While the workflow itself is being worked on (on a branch called ci/...),
   # what it built and the screenshots from its tests are pushed to a branch

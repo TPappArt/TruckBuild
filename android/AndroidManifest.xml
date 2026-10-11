@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TruckBuild as an Android app: the game's web page, shown in a WebView
+<!-- The game as an Android app: the game's web page, shown in a WebView
      that takes up the whole screen. The page and everything it needs is
      packed inside the app, so there is no INTERNET permission here: the app
      cannot go online at all. -->

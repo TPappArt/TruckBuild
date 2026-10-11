@@ -1,8 +1,8 @@
 import { GAME } from '../config.js';
 import { setPaint } from '../engine/materials.js';
-import { CATEGORIES, findPart, PAINTS, priceOf, randomBuild } from '../parts/catalog.js';
-import { buyPart, owns } from '../profile.js';
-import { coinIcon, lockIcon } from '../ui/icons.js';
+import { CATEGORIES, findPart, goldPriceOf, isPremium, PAINTS, priceOf, randomBuild } from '../parts/catalog.js';
+import { buyPart, goldLeft, owns } from '../profile.js';
+import { coinIcon, goldIcon, lockIcon } from '../ui/icons.js';
 
 // The garage picker: category tabs, a card per part, paint swatches,
 // shuffle, and the shop.
@@ -10,6 +10,9 @@ import { coinIcon, lockIcon } from '../ui/icons.js';
 // The player's build (profile.build) only ever holds parts they own. A part
 // they do not own can be tapped to try it on: it shows on the turntable and
 // a bar offers it for sale, but it is not part of the build until bought.
+//
+// Most parts cost coins. Premium parts (gold-edged cards) cost golden
+// things instead, which are found on the tracks rather than earned.
 //
 //   onChange(shown, changedCategoryId)   the vehicle on show changed
 //   onSpend()                            coins were spent; save and refresh
@@ -127,16 +130,19 @@ export function createGarageUI({ profile, snapshot, onChange, onSpend }) {
           if (GAME.showTriangleCounts) {
             button.append(element('span', 'card-count', `${triangles(part)} tris`));
           }
+          const premium = isPremium(part);
+          if (premium) button.classList.add('premium');
           if (has(category.id, part.id)) return null;
           // For sale: a padlock on the picture, and a price under the name.
           button.classList.add('locked');
           const lock = element('span', 'card-lock');
           lock.innerHTML = lockIcon;
           button.append(lock);
-          button.setAttribute('aria-label', `${part.name}, ${priceOf(part)} coins`);
+          const cost = premium ? goldPriceOf(part) : priceOf(part);
+          button.setAttribute('aria-label', `${part.name}, ${cost} ${premium ? 'golden things' : 'coins'}`);
           const price = element('span', 'card-price');
-          price.innerHTML = coinIcon;
-          price.append(String(priceOf(part)));
+          price.innerHTML = premium ? goldIcon : coinIcon;
+          price.append(String(cost));
           return price;
         }),
       );
@@ -149,12 +155,14 @@ export function createGarageUI({ profile, snapshot, onChange, onSpend }) {
   function renderOffer() {
     buyBar.hidden = !offered;
     if (!offered) return;
-    const price = priceOf(offered.part);
-    const short = price - profile.coins;
+    const premium = isPremium(offered.part);
+    const price = premium ? goldPriceOf(offered.part) : priceOf(offered.part);
+    const short = price - (premium ? goldLeft(profile) : profile.coins);
     buyName.textContent = offered.part.name;
     buyButton.disabled = short > 0;
-    buyButton.innerHTML = coinIcon;
-    buyButton.append(short > 0 ? `${short} more to go` : `Buy for ${price}`);
+    buyButton.classList.toggle('premium', premium);
+    buyButton.innerHTML = premium ? goldIcon : coinIcon;
+    buyButton.append(short > 0 ? (premium ? `Find ${short} more on the tracks` : `${short} more to go`) : `Buy for ${price}`);
   }
 
   buyButton.addEventListener('click', () => {

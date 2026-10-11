@@ -1,8 +1,10 @@
 import { cleanName, findCharacter } from './characters.js';
-import { findPart, partKey, priceOf, sanitizeBuild, STARTER_PARTS } from './parts/catalog.js';
+import { CATEGORIES, findPart, goldPriceOf, isPremium, partKey, priceOf, sanitizeBuild, STARTER_PARTS } from './parts/catalog.js';
+import { GOLD_KINDS } from './race/gold.js';
 import { findDifficulty } from './race/grid.js';
 import { WINS_TO_UNLOCK } from './race/rewards.js';
 import { TRACKS } from './race/tracks/index.js';
+import { cleanSettings } from './settings.js';
 
 // Everything the game remembers about a player between visits: who they
 // are, their coins, what they own, which tracks are open and their current
@@ -36,6 +38,14 @@ export function loadProfile() {
       if (count > 0) wins[theme.id] = Math.min(count, MOST_COINS);
     }
   }
+  // Golden things found, three to a track (race/gold.js).
+  const gold = {};
+  if (saved.gold && typeof saved.gold === 'object') {
+    for (const theme of TRACKS) {
+      const found = saved.gold[theme.id];
+      if (Array.isArray(found) && found.some(Boolean)) gold[theme.id] = GOLD_KINDS.map((kind, i) => Boolean(found[i]));
+    }
+  }
   const profile = {
     // No character yet means the player has not been through the
     // character screen, which is how a first visit is recognised.
@@ -45,9 +55,26 @@ export function loadProfile() {
     owned: [...new Set([...STARTER_PARTS, ...(Array.isArray(saved.owned) ? saved.owned.filter((key) => typeof key === 'string') : [])])],
     tracks: [TRACKS[0].id, ...(Array.isArray(saved.tracks) ? saved.tracks : [])].filter((id, i, list) => list.indexOf(id) === i && TRACKS.some((theme) => theme.id === id)),
     wins,
+    gold,
     difficulty: findDifficulty(saved.difficulty).id,
+    settings: cleanSettings(saved.settings),
     build: null,
   };
+  // Premium parts are paid for in golden things: nobody keeps more of them
+  // than they have found the gold for, cheapest first.
+  let left = goldFound(profile);
+  const premium = (key) => {
+    const [categoryId, partId] = key.split('/');
+    const part = findPart(categoryId, partId);
+    return part && isPremium(part) ? part : null;
+  };
+  const paidFor = new Set(
+    profile.owned
+      .filter(premium)
+      .sort((a, b) => goldPriceOf(premium(a)) - goldPriceOf(premium(b)))
+      .filter((key) => (left -= goldPriceOf(premium(key))) >= 0),
+  );
+  profile.owned = profile.owned.filter((key) => !premium(key) || paidFor.has(key));
   profile.build = sanitizeBuild(saved.build || read(OLD_BUILD_KEY), (category, part) => owns(profile, category, part));
   return profile;
 }
@@ -67,10 +94,48 @@ export const owns = (profile, categoryId, partId) => partId === null || profile.
 /** Buys a part if the player can afford it. Returns whether it was bought. */
 export function buyPart(profile, categoryId, partId) {
   const part = findPart(categoryId, partId);
-  if (!part || owns(profile, categoryId, partId) || profile.coins < priceOf(part)) return false;
+  if (!part || owns(profile, categoryId, partId) || profile.coins < priceOf(part) || goldLeft(profile) < goldPriceOf(part)) return false;
+  // (A premium part costs golden things, which are never taken away: what
+  // has been spent is worked out from what is owned.)
   profile.coins -= priceOf(part);
   profile.owned.push(partKey(categoryId, partId));
   return true;
+}
+
+// ---------- Golden things ----------
+
+/** Which of a track's three golden things the player has: [bool, bool, bool]. */
+export const goldOn = (profile, theme) => profile.gold[theme.id] ?? GOLD_KINDS.map(() => false);
+
+/** How many golden things the player has found, on every track together. */
+export const goldFound = (profile) => Object.values(profile.gold).reduce((sum, found) => sum + found.filter(Boolean).length, 0);
+
+/** How many of them are still to spend. */
+export function goldLeft(profile) {
+  let spent = 0;
+  for (const category of CATEGORIES) {
+    for (const part of category.parts) {
+      if (isPremium(part) && profile.owned.includes(partKey(category.id, part.id))) spent += goldPriceOf(part);
+    }
+  }
+  return goldFound(profile) - spent;
+}
+
+/**
+ * Records golden things picked up on a track (their places among its
+ * three: 0, 1, 2). Returns how many of them were new.
+ */
+export function recordGold(profile, theme, places) {
+  const found = [...goldOn(profile, theme)];
+  let fresh = 0;
+  for (const place of places) {
+    if (place >= 0 && place < found.length && !found[place]) {
+      found[place] = true;
+      fresh++;
+    }
+  }
+  if (fresh) profile.gold[theme.id] = found;
+  return fresh;
 }
 
 // ---------- Tracks ----------

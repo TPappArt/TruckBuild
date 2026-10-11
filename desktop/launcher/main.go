@@ -1,4 +1,4 @@
-// TruckBuild for the desktop: one program with the whole game inside it.
+// Fizzbang Rally for the desktop: one program with the whole game inside it.
 //
 // The game is a web page. This program serves that page to this computer
 // only, and opens it in a window of its own with no browser furniture round
@@ -211,7 +211,9 @@ func dataDir() string {
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "TruckBuild", "Profile")
+	// The folder keeps the name the game was first released under, whatever
+	// it is called now, so that a renamed game still finds its saved games.
+	return filepath.Join(base, "truckbuild", "Profile")
 }
 
 // openWindow shows the game. It returns as soon as the browser has been

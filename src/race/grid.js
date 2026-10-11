@@ -1,8 +1,8 @@
-import { CHARACTERS } from '../characters.js';
-import { findPart, PAINTS, randomBuild } from '../parts/catalog.js';
+import { CHARACTERS, VILLAIN } from '../characters.js';
+import { findPart, isPremium, PAINTS, randomBuild } from '../parts/catalog.js';
 
-// Who lines up for a race: three computer rivals in random contraptions,
-// with the player at the back of the grid.
+// Who lines up for a race: the villain on pole, two more computer rivals in
+// random contraptions, and the player at the back of the grid.
 
 const NAMES = ['Sparky', 'Dusty', 'Frosty', 'Nitro', 'Clunk', 'Zippy', 'Rattle', 'Bolt', 'Pickle', 'Gizmo'];
 
@@ -22,16 +22,28 @@ const NAMES = ['Sparky', 'Dusty', 'Frosty', 'Nitro', 'Clunk', 'Zippy', 'Rattle',
 //
 // Easy is for young children: the rivals lose to anyone who keeps the car
 // roughly on the road. Hard rivals drive properly and do not wait.
+// The villain is in every race: Baron Honk, in the same car each time so
+// that he is known at a glance. He drives as the first rival of whichever
+// level is being played, and on top of that makes it his business to be in
+// the player's way (see VILLAIN in session.js for how).
+const BARON = {
+  name: VILLAIN.name,
+  character: VILLAIN.id,
+  villain: true,
+  // A colour of his own, which is not one a player can pick.
+  build: { wheels: 'monster-wheels', body: 'bulldog', extra: 'top-hat', weapon: null, paint: '#6a3fb5' },
+};
+
 export const DIFFICULTIES = [
   {
     id: 'easy',
     name: 'Easy',
     rivals: [
-      { pace: 0.66, lane: -6.3, weave: 3.6, clumsy: 1.0 },
-      { pace: 0.59, lane: 6.3, weave: 5.0, clumsy: 1.3 },
-      { pace: 0.52, lane: -2.7, weave: 6.3, clumsy: 1.6 },
+      { pace: 0.63, lane: -6.3, weave: 3.6, clumsy: 1.0 },
+      { pace: 0.56, lane: 6.3, weave: 5.0, clumsy: 1.3 },
+      { pace: 0.5, lane: -2.7, weave: 6.3, clumsy: 1.6 },
     ],
-    wait: 80,
+    wait: 72,
     floor: 0.25,
     catchUp: 1.05,
     trigger: 0.2,
@@ -86,17 +98,23 @@ function shuffled(list) {
 export function makeGrid(playerBuild, player = {}, difficulty = DIFFICULTIES[0]) {
   // Rivals never share the player's colour, name or face, or each other's.
   const paints = shuffled(PAINTS.filter((paint) => paint.hex !== playerBuild.paint));
-  const names = shuffled(NAMES.filter((name) => name.toLowerCase() !== String(player.name).toLowerCase()));
+  const taken = [String(player.name).toLowerCase(), BARON.name.toLowerCase()];
+  const names = shuffled(NAMES.filter((name) => !taken.includes(name.toLowerCase())));
   const faces = shuffled(CHARACTERS.filter((character) => character.id !== player.character));
   // What a racer's weapon does in a race comes from the part it has fitted.
   const armed = (driver) => ({ ...driver, attack: findPart('weapon', driver.build.weapon)?.attack ?? null });
 
-  const rivals = difficulty.rivals.map((rival, i) => ({
-    ...rival,
-    name: names[i],
-    character: faces[i].id,
-    build: { ...randomBuild(), paint: paints[i].hex },
-  }));
+  const rivals = difficulty.rivals.map((rival, i) =>
+    i === 0
+      ? { ...rival, ...BARON, build: { ...BARON.build } }
+      : {
+          ...rival,
+          name: names[i],
+          character: faces[i].id,
+          // (Premium parts are the player's to show off: rivals never have them.)
+          build: { ...randomBuild((category, part) => part === null || !isPremium(findPart(category, part))), paint: paints[i].hex },
+        },
+  );
   const you = { name: player.name || 'You', character: player.character, isPlayer: true, build: { ...playerBuild } };
   return [...rivals, you].map(armed);
 }

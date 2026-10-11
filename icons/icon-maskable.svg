@@ -1,0 +1,57 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+  <linearGradient id="icon-gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff6c2"/><stop offset=".42" stop-color="#ffd23f"/><stop offset="1" stop-color="#c98200"/>
+  </linearGradient>
+  <linearGradient id="icon-face" x1="0" y1="0" x2="0" y2="1">
+    <stop offset=".05" stop-color="#ffffff"/><stop offset=".5" stop-color="#ffe680"/><stop offset=".95" stop-color="#ff9a1f"/>
+  </linearGradient>
+  <linearGradient id="icon-glass" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#35c26b"/><stop offset=".55" stop-color="#1f9d55"/><stop offset="1" stop-color="#14713c"/>
+  </linearGradient>
+  <pattern id="icon-check" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#ffffff"/><rect width="16" height="16" fill="#14204a"/><rect x="16" y="16" width="16" height="16" fill="#14204a"/>
+  </pattern>
+    <radialGradient id="icon-sky" cx=".5" cy=".42" r=".75"><stop offset="0" stop-color="#3f8dff"/><stop offset=".7" stop-color="#1d43a8"/><stop offset="1" stop-color="#132a6b"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="0" fill="url(#icon-sky)"/>
+  
+  <g transform="translate(256 262) scale(0.74)">
+    <g transform="translate(0 86) scale(2.05)">
+    <circle r="78" fill="#22252d" stroke="#0d1d4d" stroke-width="7"/>
+    <circle r="70" fill="none" stroke="#474d5c" stroke-width="12" stroke-dasharray="14 9.5"/>
+    <circle r="46" fill="url(#icon-gold)" stroke="#0d1d4d" stroke-width="6"/>
+    <path d="M0 0L0.0 -40.0M0 0L38.0 -12.4M0 0L23.5 32.4M0 0L-23.5 32.4M0 0L-38.0 -12.4" stroke="#0d1d4d" stroke-width="8" stroke-linecap="round"/>
+    <circle r="13" fill="#e4463a" stroke="#0d1d4d" stroke-width="5"/></g>
+    <g transform="translate(-6 196) rotate(-8) scale(1.22)">
+    
+    <g fill="#fffbe6" stroke="#0d1d4d" stroke-width="3.5" stroke-linejoin="round">
+      <path d="M-11 -224C-40 -262 -74 -262 -96 -244 -74 -250 -50 -240 -30 -214z"/>
+      <path d="M8 -224C24 -270 60 -288 92 -274 62 -272 40 -252 24 -216z"/>
+      <path d="M-4 -226C-10 -270 -2 -300 22 -318 12 -292 12 -262 12 -226z"/>
+      <circle cx="-108" cy="-226" r="9"/><circle cx="108" cy="-262" r="10"/><circle cx="-52" cy="-290" r="8"/>
+      <circle cx="-84" cy="-284" r="5"/><circle cx="62" cy="-312" r="6"/><circle cx="126" cy="-226" r="5"/>
+    </g>
+    <g transform="translate(42 -346) rotate(28)">
+      <path d="M-15 0h30l-4 30h-22z" fill="#d9a866" stroke="#0d1d4d" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-21 -14a21 15 0 0 1 42 0v8a6 6 0 0 1-6 6h-30a6 6 0 0 1-6-6z" fill="#edc58a" stroke="#0d1d4d" stroke-width="5" stroke-linejoin="round"/>
+    </g>
+    <g fill="url(#icon-gold)" stroke="#0d1d4d" stroke-width="3" stroke-linejoin="round">
+      <path d="M-130 -300l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/>
+      <path d="M118 -330l5 11 11 5-11 5-5 11-5-11-11-5 11-5z"/>
+    </g>
+    <path d="M-46 0V-104C-46 -142 -15 -150 -15 -180V-216H15V-180C15 -150 46 -142 46 -104V0Z" fill="url(#icon-glass)" stroke="#0d1d4d" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M-34 -22V-100C-34 -122 -22 -134 -14 -146" fill="none" stroke="#ffffff" stroke-opacity=".38" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-15 -222H15V-180C15 -168 21 -160 28 -152L14 -158 4 -148 -6 -158 -16 -148 -28 -152C-21 -160 -15 -168 -15 -180Z" fill="url(#icon-gold)" stroke="#0d1d4d" stroke-width="5" stroke-linejoin="round"/>
+    <rect x="-20" y="-228" width="40" height="12" rx="5" fill="url(#icon-gold)" stroke="#0d1d4d" stroke-width="5"/>
+    <path d="M-46 -52H46V-8H-46Z" fill="#fff6e0" stroke="#0d1d4d" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M0 -46l4.6 9.6 10.4 1.2-7.7 7.2 2 10.4L0 -22.6l-9.3 5 2-10.4-7.7-7.2 10.4-1.2z" fill="#e4463a"/>
+    <ellipse cx="-17" cy="-106" rx="14" ry="17" fill="#ffffff" stroke="#0d1d4d" stroke-width="4.5"/>
+    <ellipse cx="17" cy="-106" rx="14" ry="17" fill="#ffffff" stroke="#0d1d4d" stroke-width="4.5"/>
+    <circle cx="-13" cy="-102" r="6.5" fill="#0d1d4d"/><circle cx="21" cy="-102" r="6.5" fill="#0d1d4d"/>
+    <circle cx="-15" cy="-105" r="2.2" fill="#ffffff"/><circle cx="19" cy="-105" r="2.2" fill="#ffffff"/>
+    <path d="M-34 -126l20 -7M34 -126l-20 -7" stroke="#0d1d4d" stroke-width="5" stroke-linecap="round"/>
+    <path d="M-24 -80Q0 -52 24 -80Q0 -72 -24 -80Z" fill="#0d1d4d" stroke="#0d1d4d" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-9 -68Q0 -58 9 -68Q0 -72 -9 -68Z" fill="#ff6a7a"/></g>
+  </g>
+</svg>

@@ -12,7 +12,7 @@ APP=io.github.tpappart.truckbuild
 note() { echo "::notice title=Android test::$*"; }
 fail() { echo "::error title=Android test::$*"; exit 1; }
 
-adb install -r "dist/TruckBuild.apk" || fail "The app would not install."
+adb install -r "dist/FizzbangRally.apk" || fail "The app would not install."
 adb logcat -c
 adb shell am start -W -n "$APP/.MainActivity" || fail "The app would not start."
 sleep 20

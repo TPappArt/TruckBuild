@@ -47,7 +47,7 @@ export function createCombat(track, random, bang = () => {}, trigger = 0.2) {
       z: car.z,
       heading: car.heading,
     });
-    racer.reload = RELOAD;
+    racer.reload = racer.attack.reload ?? RELOAD;
   }
 
   /** The nearest other car within `metres` ahead on the road, or null. */
@@ -86,7 +86,7 @@ export function createCombat(track, random, bang = () => {}, trigger = 0.2) {
           const target = carAhead(racer, car.index, 45, racers);
           if (target && Math.abs(target.car.offset - car.offset) < 5 && random() < dt * trigger) {
             fire(racer);
-            racer.reload = RELOAD + random() * 12;
+            racer.reload = (attack.reload ?? RELOAD) + random() * 12;
           }
         }
       }

@@ -8,6 +8,12 @@ export const coinIcon = svg(
   '<circle cx="12" cy="12" r="11" fill="#e8a500"/><circle cx="12" cy="11" r="10" fill="#ffd23f"/><circle cx="12" cy="11" r="7" fill="none" stroke="#e8a500" stroke-width="1.6"/><path d="M12 6.5l1.4 3 3.2.3-2.4 2.2.7 3.2-2.9-1.7-2.9 1.7.7-3.2-2.4-2.2 3.2-.3z" fill="#e8a500"/>',
 );
 
+/** A golden thing: what premium parts cost (race/gold.js). */
+export const goldIcon = svg(
+  '0 0 24 24',
+  '<path d="M12 1.6l3.1 6.5 7.1.9-5.2 4.9 1.3 7-6.3-3.4-6.3 3.4 1.3-7L1.8 9l7.1-.9z" fill="#ffd23f" stroke="#b97700" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 5.6l1.8 3.9 4.2.5-3.1 2.9.8 4.1-3.7-2-3.7 2 .8-4.1-3.1-2.9 4.2-.5z" fill="#fff3a8"/>',
+);
+
 export const lockIcon = svg(
   '0 0 24 24',
   '<path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><rect x="4.5" y="10.5" width="15" height="11" rx="3" fill="currentColor"/><circle cx="12" cy="16" r="1.8" fill="#fff"/>',

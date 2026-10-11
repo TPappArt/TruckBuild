@@ -12,6 +12,7 @@ import {
   checkpointLine,
   coinsGeometry,
   freezeGeometry,
+  goldGeometry,
   haloGeometry,
   holeGeometry,
   ITEM_HALOS,
@@ -25,13 +26,14 @@ import {
   ringGeometry,
   shotGeometry,
   skeletonGeometry,
+  slickGeometry,
   slowGeometry,
   stripGeometry,
   trampolineGeometry,
   werewolfGeometry,
   zombieGeometry,
 } from './props.js';
-import { createSession } from './session.js';
+import { createSession, SLICK_LASTS } from './session.js';
 import { curtainGeometry, pillarGeometry, snowballGeometry } from './setpieces.js';
 import { buildRaceVehicle } from './vehicle.js';
 import { buildWorld, CHECKPOINT_HEIGHT, checkpointSpan } from './world.js';
@@ -145,6 +147,9 @@ export function createRaceScene(renderer, view) {
 
   const camera = { eye: [0, 5, -10], target: [0, 1, 0], fov: 1, near: 0.5, far: 520 };
   let cameraHeading = 0;
+  // The player's own adjustments (the settings screen): how far back the
+  // camera rides and how wide its lens is, each 1 as designed.
+  const lens = { distance: 1, view: 1 };
   let cameraY = 0; // height of the road the camera is following
   let aheadY = 0; // and of the road it is looking toward
   let shade = 0; // 0 in the open, 1 in a tunnel
@@ -153,8 +158,9 @@ export function createRaceScene(renderer, view) {
    * Starts a race.
    * drivers: [{ name, build, isPlayer, lane, pace, attack, ... }] in grid order.
    * rules:   how the rivals behave, from the difficulty (see grid.js).
+   * gold:    which of the track's golden things the player already has (gold.js).
    */
-  function start({ theme, drivers, laps, rules }) {
+  function start({ theme, drivers, laps, rules, gold = [] }) {
     world = worldFor(theme);
     session = createSession({
       track: world.track,
@@ -164,6 +170,7 @@ export function createRaceScene(renderer, view) {
       laps,
       drivers,
       rules,
+      gold,
     });
     vehicles = session.racers.map((racer) => {
       const vehicle = buildRaceVehicle(racer.build);
@@ -305,6 +312,32 @@ export function createRaceScene(renderer, view) {
       entry.node.geometry = entry.strip.fast ? entry.fast : entry.slow;
     }
 
+    // The golden things still to be found here: turning slowly, and bright
+    // enough to be seen from a long way back.
+    if (session.gold) {
+      session.gold.items.forEach((item, i) => {
+        if (item.found || item.taken || !inSight(item.x, item.z)) return;
+        const y = item.y + 2.1 + 0.25 * Math.sin(time * 2.2 + i * 2);
+        solidPool.take(goldGeometry(item.kind), item.x, y, item.z, 1.15, time * 1.8 + i);
+        glowPool.take(haloGeometry('gold'), item.x, y, item.z, 3.1 * pulse);
+        const flat = item.level ? paintPool : solidPool;
+        flat.take(ringGeometry('gold', 1.9, 2.5), item.x, item.level ? 0 : item.y + 0.065, item.z, pulse);
+      });
+    }
+
+    // What the villain has dripped on the road. It shrinks away as it dries.
+    if (session.villain) {
+      for (const slick of session.villain.slicks) {
+        if (!inSight(slick.x, slick.z)) continue;
+        const age = session.time - slick.at;
+        const size = Math.min(1, age * 4) * Math.min(1, (SLICK_LASTS - age) * 1.5);
+        if (size <= 0) continue;
+        const flat = slick.level ? paintPool : solidPool;
+        flat.take(slickGeometry(), slick.x, slick.level ? 0 : slick.y + 0.07, slick.z, size, slick.heading);
+        glowPool.take(haloGeometry('bad'), slick.x, slick.y + 0.2, slick.z, [2.1 * size, 0.6 * size, 2.1 * size]);
+      }
+    }
+
     // Shots in flight.
     for (const shot of session.combat.shots) {
       const y = world.track.heightAt(shot.index, shot.offset) + 1.3;
@@ -318,7 +351,7 @@ export function createRaceScene(renderer, view) {
       if (age < 0 || age >= 1) continue;
       const y = (bang.y ?? 0) + 1.6;
       solidPool.take(bangGeometry(bang.kind), bang.x, y, bang.z, 0.7 + age * 1.7);
-      const halo = { spark: 'spark', blast: 'fire', slime: 'slime' }[bang.kind];
+      const halo = { spark: 'spark', blast: 'fire', slime: 'slime', gold: 'gold' }[bang.kind];
       if (halo) glowPool.take(haloGeometry(halo), bang.x, y, bang.z, 3 + age * 3);
     }
 
@@ -532,7 +565,9 @@ export function createRaceScene(renderer, view) {
     const speed = Math.min(1.5, Math.abs(car.speed) / car.maxSpeed);
     const fx = Math.sin(cameraHeading);
     const fz = Math.cos(cameraHeading);
-    const back = 9.6 + speed * 1.9;
+    const back = (9.6 + speed * 1.9) * lens.distance;
+    // Further back is also a little higher, or the car would hide the road.
+    const up = 4.3 * (0.55 + 0.45 * lens.distance);
 
     // Height: that of the road under the car, and of the road a little way
     // ahead for what the camera looks at, both eased so that the view glides.
@@ -542,7 +577,7 @@ export function createRaceScene(renderer, view) {
     aheadY += (track.heightAt(here + 6.5 / track.spacing, car.offset) - aheadY) * lift;
     // Far enough back and high enough up to see the road well ahead, and
     // what is coming up beside it.
-    camera.eye = [car.x - fx * back, cameraY + 4.3 + car.lift * 0.5, car.z - fz * back];
+    camera.eye = [car.x - fx * back, cameraY + up + car.lift * 0.5, car.z - fz * back];
     camera.target = [car.x + fx * 6.5, aheadY + 1.5 + car.lift * 0.6, car.z + fz * 6.5];
 
     // In a tunnel the daylight goes.
@@ -552,7 +587,7 @@ export function createRaceScene(renderer, view) {
     // up a little with speed.
     const aspect = view.width / view.height;
     const wide = 1.15 + speed * 0.14;
-    camera.fov = aspect >= 1.3 ? 0.92 + speed * 0.1 : Math.min(1.5, 2 * Math.atan(Math.tan(wide / 2) / aspect));
+    camera.fov = Math.min(1.75, (aspect >= 1.3 ? 0.92 + speed * 0.1 : Math.min(1.5, 2 * Math.atan(Math.tan(wide / 2) / aspect))) * lens.view);
   }
 
   function update(dt, input) {
@@ -713,6 +748,11 @@ export function createRaceScene(renderer, view) {
     render,
     plates,
     snapshot,
+    /** distance: how far back the camera rides. view: how wide its lens is. Each 1 as designed. */
+    setCamera(distance, view) {
+      lens.distance = distance;
+      lens.view = view;
+    },
     get session() {
       return session;
     },
