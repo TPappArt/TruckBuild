@@ -121,7 +121,7 @@ nothing to sign in to and nothing is sent anywhere.
 
 | | File | What it is |
 | --- | --- | --- |
-| Android | `FizzbangRally.apk` | An app for Android 6 and newer, about a quarter of a megabyte. It asks for no permissions at all, not even the network. |
+| Android | `FizzbangRally.apk` | An app for Android 6 and newer, under a megabyte. It asks for no permissions at all, not even the network. |
 | Windows | `FizzbangRally-Setup.exe` | A setup program for Windows 10 and 11. Installs for the current user (no administrator password), with Start menu and desktop shortcuts and an entry under "Installed apps" to remove it. |
 | Windows | `FizzbangRally.exe` | The same game as one program that runs where it is, with no setup. |
 
