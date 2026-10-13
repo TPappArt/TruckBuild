@@ -25,7 +25,14 @@
 //
 // The list of pictures and where each one sits (TILES, tileOf, ATLAS) can be
 // used anywhere, including the scripts that run without a browser. Drawing
-// the sheet (drawAtlas) needs a browser.
+// the sheet (atlasSheet) needs a browser.
+//
+// Drawing it takes a moment, so it is not done all at once while the game
+// starts: the sheet begins with every pattern a plain middle grey (which
+// changes nothing it is laid over) and every other picture clear, and the
+// real pictures are drawn into it a few at a time over the next frames.
+// Whoever shows it hears when it is done (onAtlasDrawn) and sends it to the
+// graphics card again.
 
 const GUTTER = 2;
 
@@ -1009,28 +1016,68 @@ const DRAW_SPRITE = {
   },
 };
 
-let drawn = null;
+let sheet = null;
+let finished = false;
+const listeners = [];
+let finishedPromise = null;
 
 /**
- * Draws the sheet and returns its canvas (once: later calls return the same
- * one). Needs a browser.
+ * The sheet's canvas, started if it has not been. It may not be finished:
+ * see onAtlasDrawn. Needs a browser.
  */
-export function drawAtlas() {
-  if (drawn) return drawn;
-  const sheet = document.createElement('canvas');
+export function atlasSheet() {
+  if (sheet) return sheet;
+  sheet = document.createElement('canvas');
   sheet.width = ATLAS.width;
   sheet.height = ATLAS.height;
   const out = sheet.getContext('2d');
+  // Stand-ins: grey for patterns, clear for the rest.
+  out.fillStyle = 'rgb(128,128,128)';
+  for (const tile of Object.values(TILES)) {
+    if (tile.kind === 'detail') out.fillRect(tile.x - GUTTER, tile.y - GUTTER, tile.width + GUTTER * 2, tile.height + GUTTER * 2);
+  }
   const piece = document.createElement('canvas');
   const ctx = piece.getContext('2d', { willReadFrequently: true });
+  const queue = Object.entries(TILES).map(([name, tile], i) => ({ name, tile, seed: i + 1 }));
+  // A few pictures at a time, a few milliseconds' worth, between frames.
+  const more = () => {
+    const until = performance.now() + 8;
+    while (queue.length && performance.now() < until) {
+      const { name, tile, seed } = queue.shift();
+      drawTile(name, tile, seed, ctx, piece, out);
+    }
+    if (queue.length) {
+      setTimeout(more, 16);
+      return;
+    }
+    finished = true;
+    for (const listener of listeners.splice(0)) listener(sheet);
+  };
+  setTimeout(more, 50);
+  return sheet;
+}
 
-  let seed = 1;
-  for (const [name, tile] of Object.entries(TILES)) {
+/** Calls `listener(canvas)` once the sheet is finished (straight away if it is). */
+export function onAtlasDrawn(listener) {
+  if (finished) listener(sheet);
+  else listeners.push(listener);
+}
+
+/** A promise of the finished sheet, for whatever must not start without it (pictures of the tracks). */
+export function atlasDrawn() {
+  atlasSheet();
+  finishedPromise ??= new Promise((resolve) => onAtlasDrawn(resolve));
+  return finishedPromise;
+}
+
+/** Draws one picture onto the sheet. */
+function drawTile(name, tile, seed, ctx, piece, out) {
+  {
     const { width: w, height: h } = tile;
     piece.width = w;
     piece.height = h;
     ctx.clearRect(0, 0, w, h);
-    const rand = random(seed++ * 7919);
+    const rand = random(seed * 7919);
     if (tile.kind === 'detail') DRAW[name](ctx, w, rand);
     else if (tile.kind === 'decal') DRAW_DECAL[name](ctx, w, h, rand);
     else DRAW_SPRITE[name](ctx, w, h, rand);
@@ -1047,6 +1094,4 @@ export function drawAtlas() {
       out.drawImage(piece, tile.x, tile.y);
     }
   }
-  drawn = sheet;
-  return sheet;
 }

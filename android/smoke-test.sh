@@ -21,7 +21,8 @@ step 180 adb install -r "dist/FizzbangRally.apk" || fail "The app would not inst
 step 20 adb logcat -c
 step 120 adb shell am start -W -n "$APP/.MainActivity" || fail "The app would not start."
 note "App started $(date +%T)."
-sleep 20
+# An emulator is slow: give the start screen time to come up.
+sleep 30
 shot android-1-start.png
 note "First screenshot $(date +%T)." 
 

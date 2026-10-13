@@ -615,9 +615,11 @@ turns it off.
 
 Every texture is on one sheet, the atlas (`src/engine/atlas.js`): 512 by
 512 pixels holding 42 small pictures between 16 and 128 pixels across. The
-game draws the sheet itself at start-up, in a few hundredths of a second, so
-there are no image files to download. It goes to the graphics card once,
-as one texture.
+game draws the sheet itself, so there are no image files to download. It
+does not hold up the start: the sheet begins plain (patterns middle grey,
+which changes nothing, and everything else clear), the pictures are drawn
+into it a few at a time over the first frames, and the finished sheet goes
+to the graphics card as one texture. Pictures of the tracks wait for it.
 
 | Kind | Pictures | How they are used |
 | --- | --- | --- |

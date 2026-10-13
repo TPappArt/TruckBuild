@@ -1,6 +1,7 @@
 import { createAudio } from './audio/index.js';
 import { characterSvg } from './characters.js';
 import { GAME } from './config.js';
+import { atlasDrawn } from './engine/atlas.js';
 import { createRenderer } from './engine/renderer.js';
 import {
   enterFullscreen,
@@ -368,6 +369,8 @@ function startGame() {
       busy = true;
       loading.show({ title: GAME.name, text: 'Getting the tracks ready', image: backdrop });
       await paint();
+      // The pictures are kept, so they wait for the textures to be ready.
+      await atlasDrawn();
       const shownAt = performance.now();
       const grid = () => makeGrid(profile.build, { name: profile.name, character: profile.character }, difficulty());
       for (let i = 0; i < missing.length; i++) {

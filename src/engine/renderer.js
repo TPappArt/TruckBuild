@@ -1,4 +1,4 @@
-import { ATLAS, drawAtlas } from './atlas.js';
+import { ATLAS, atlasSheet, onAtlasDrawn } from './atlas.js';
 import { resolveMaterial } from './materials.js';
 import { determinant3, identity, lookAt, multiply, normalMatrix, perspective } from './math.js';
 
@@ -309,9 +309,9 @@ export function createRenderer(canvas) {
     // would bleed between neighbouring pictures, and those patterns fade out
     // with distance anyway), and with smaller copies, for the pictures used
     // whole, which are then still clean when seen far off.
-    const sheet = drawAtlas();
-    const sendAtlas = (mipmaps) => {
-      const texture = gl.createTexture();
+    // (It may still be being drawn: it is sent again once it is finished.)
+    const sheet = atlasSheet();
+    const sendAtlas = (mipmaps, texture = gl.createTexture()) => {
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sheet);
@@ -325,6 +325,11 @@ export function createRenderer(canvas) {
     };
     atlas = sendAtlas(false);
     atlasSoft = sendAtlas(true);
+    onAtlasDrawn(() => {
+      if (gl.isContextLost()) return;
+      sendAtlas(false, atlas);
+      sendAtlas(true, atlasSoft);
+    });
     gl.useProgram(program);
     gl.uniform4fv(uniforms['uTiles[0]'], ATLAS.rects);
     gl.uniform1f(uniforms.uTileTexels, ATLAS.width);
