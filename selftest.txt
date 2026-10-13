@@ -1,0 +1,6 @@
+ok "styles/main.css": text/css; charset=utf-8, 42630 bytes
+ok "manifest.webmanifest": application/manifest+json; charset=utf-8, 608 bytes
+ok "icons/icon-192.png": image/png, 39025 bytes
+ok "": text/html; charset=utf-8, 10826 bytes
+ok "src/main.js": text/javascript; charset=utf-8, 19620 bytes
+selftest passed

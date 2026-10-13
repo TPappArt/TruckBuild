@@ -1,0 +1,2 @@
+--------- beginning of main
+10-13 08:20:38.098  3286  3286 I GamePage: page finished: https://appassets.androidplatform.net/index.html?app
