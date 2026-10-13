@@ -6,9 +6,9 @@ import { barricade, crate, drum, signPost, tuft } from '../dressing.js';
 // The road edges, the gates you drive under and most of the plant life
 // glow. Thunder Bridge crosses the lake, and the lightning likes it.
 
-const bark = material('#3b3340', { spec: 0.05 });
-const iron = material('#4a5266', { spec: 0.4, shine: 30 });
-const ironDark = material('#2f3545', { spec: 0.3 });
+const bark = material('#3b3340', { spec: 0.05, tex: 'bark' });
+const iron = material('#4a5266', { spec: 0.4, shine: 30, tex: 'metal' });
+const ironDark = material('#2f3545', { spec: 0.3, tex: 'metal' });
 const stem = material('#c9d8c2', { spec: 0.1 });
 const volt = material('#66f4ff', { glow: 1 });
 const lime = material('#b6ff5c', { glow: 1 });
@@ -18,11 +18,11 @@ const ember = material('#ffe98a', { glow: 1 });
 const reed = material('#3f6b45', { spec: 0.05 });
 const reedDark = material('#2c5236', { spec: 0.05 });
 const spot = material('#fff6d8', { glow: 0.8 });
-const plank = material('#6a4f34', { spec: 0.05 });
-const plankDark = material('#4a3522', { spec: 0.05 });
+const plank = material('#6a4f34', { spec: 0.05, tex: 'planks' });
+const plankDark = material('#4a3522', { spec: 0.05, tex: 'planks' });
 const pool = material('#1c8f8c', { glow: 0.45 });
 const poolDeep = material('#126a72', { glow: 0.3 });
-const mud = material('#1c3324', { spec: 0 });
+const mud = material('#1c3324', { spec: 0, tex: 'mud' });
 const hazardYellow = material('#ffd23f', { spec: 0.2 });
 
 function pylon() {
@@ -174,12 +174,12 @@ export const swamp = {
   grain: 0.2,
   cinematic: { eye: [60, 8, 24], target: [0, -2, 3], fov: 0.92, cars: -30 },
 
-  ground: material('#27462f'),
+  ground: material('#27462f', { tex: 'grass', strength: 0.6 }),
   road: {
-    surface: material('#3d3340'),
-    shoulder: material('#2f5a3a'),
-    wear: material('#27462f'),
-    patch: material('#453a49'),
+    surface: material('#3d3340', { tex: 'asphalt' }),
+    shoulder: material('#2f5a3a', { tex: 'grass' }),
+    wear: material('#27462f', { tex: 'mud' }),
+    patch: material('#453a49', { tex: 'asphalt' }),
     scuff: material('#2c2530'),
     // Live rails instead of kerbs.
     kerbA: volt,
@@ -190,6 +190,10 @@ export const swamp = {
     chequerLight: material('#e8f6f2'),
   },
   preview: { ground: '#1f3f33', road: '#4a3f52', accent: '#66f4ff' },
+  decals: {
+    road: [['puddle', 18, 3.6], ['crack', 10, 3]],
+    verge: [['moss', 30, 3.4], ['puddle', 12, 3]],
+  },
 
   // Viaducts, cuttings and islands: iron, edged with live rail, and a row
   // of mushrooms down the middle.
@@ -199,13 +203,14 @@ export const swamp = {
     trim: volt,
     roof: material('#1d1f2b', { spec: 0.05 }),
     lamp: lime,
-    island: material('#2f5a36', { spec: 0 }),
+    island: material('#2f5a36', { spec: 0, tex: 'grass' }),
+    graffiti: ['bolt', 'tagZap', 'moss', 'smiley', 'bolt', 'tagFizz'],
     arch: material('#1d1f2b', { spec: 0 }),
   },
   median: () => mushroom(pink),
 
   paintGround({ paint, random, track }) {
-    const moss = [material('#2f5a36'), material('#21402b'), material('#35633a')];
+    const moss = ['#2f5a36', '#21402b', '#35633a'].map((hex) => material(hex, { tex: 'mud' }));
     for (let i = 0; i < 80; i++) {
       paint.blob(random.range(-300, 300), random.range(-300, 300), random.range(12, 40), random.range(8, 20), random.range(0, Math.PI), random.pick(moss));
     }

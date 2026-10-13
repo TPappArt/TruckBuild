@@ -33,6 +33,7 @@ import {
   werewolfGeometry,
   zombieGeometry,
 } from './props.js';
+import { createParticles } from './particles.js';
 import { createSession, SLICK_LASTS } from './session.js';
 import { curtainGeometry, pillarGeometry, snowballGeometry } from './setpieces.js';
 import { buildRaceVehicle } from './vehicle.js';
@@ -42,6 +43,15 @@ import { buildWorld, CHECKPOINT_HEIGHT, checkpointSpan } from './world.js';
 // draws everything that happens and follows the player with a chase camera.
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// What sends up sparks and bits: things that knock a car about.
+const KNOCKS = new Set(['hit', 'bomb', 'meteor', 'pillar', 'snowball', 'mummy', 'skeleton', 'werewolf']);
+const HEARING = 95; // metres from the camera beyond which a car's dust is not worth making
+const mixed = (a, b, t) => a.map((value, k) => value + (b[k] - value) * t);
+const WHITE = [1, 1, 1];
+const SOOT = [0.05, 0.05, 0.06];
+const SPARK = [1, 0.75, 0.3];
+const ZAP = [0.4, 0.95, 1];
 const BANG_TIME = 0.45;
 const KEEP_WORLDS = 2; // tracks kept built, so "race again" is instant
 
@@ -142,6 +152,12 @@ export function createRaceScene(renderer, view) {
   const glowPool = createPool(); // halos
   const motePool = createPool(); // whatever is in the air
   const ground = new Node();
+  const particles = createParticles();
+  // Each car as it was last frame, to tell what has just happened to it.
+  let stirred = [];
+  let seenBangs = new Set();
+  // The colours of what gets thrown up: off the road, and off the ground.
+  let dust = { road: WHITE, ground: WHITE, clod: WHITE, snowy: false };
   const drift = [0, 0, 0]; // how far the air has moved: x, down, z
   const mistDrift = [0, 0];
 
@@ -210,6 +226,18 @@ export function createRaceScene(renderer, view) {
       lit: checkpointLine(world.track, checkpoint.index, true),
     }));
     fixedGround = [world.ground, ...strips.map((entry) => entry.node), ...gates.map((gate) => gate.line)];
+
+    particles.clear();
+    stirred = session.racers.map((racer) => ({ speed: 0, flying: false, event: racer.lastEvent, spare: 0, sparks: 0 }));
+    seenBangs = new Set(session.bangs);
+    const groundColor = theme.ground.color;
+    const snowy = groundColor[0] + groundColor[1] + groundColor[2] > 2.2;
+    dust = {
+      road: mixed(theme.road.shoulder.color, WHITE, 0.35),
+      ground: mixed(groundColor, WHITE, snowy ? 0 : 0.2),
+      clod: groundColor.map((value) => value * 0.6),
+      snowy,
+    };
 
     time = 0;
     cameraHeading = (player || session.racers[0]).car.heading;
@@ -358,9 +386,118 @@ export function createRaceScene(renderer, view) {
     placeHazard();
     placeFeature();
     placeAir(dt);
+    stir(dt);
 
     ground.children = [...fixedGround, ...paintPool.active];
     ground.updateWorld();
+  }
+
+  /**
+   * Makes the dust, sparks and bits: from what each car is doing this
+   * frame compared with the last. Only near the camera; far off, nobody
+   * would see it.
+   */
+  function stir(dt) {
+    particles.update(dt);
+    if (dt <= 0 || session.phase === 'countdown') return;
+    const random = Math.random;
+    session.racers.forEach((racer, i) => {
+      const car = racer.car;
+      const memo = stirred[i];
+      const speed = Math.abs(car.speed);
+      const airborne = Boolean(car.flight) || car.lift > 0.3;
+      const near = Math.hypot(car.x - camera.eye[0], car.z - camera.eye[2]) < HEARING;
+      const fx = Math.sin(car.heading);
+      const fz = Math.cos(car.heading);
+      const base = car.y;
+      const at = (back, side, up = 0.25) => [car.x - fx * back - fz * side, base + up, car.z - fz * back + fx * side];
+
+      // Dust from the back wheels: off the road, braking hard, or sliding.
+      const slowing = (memo.speed - speed) / dt;
+      const sideways = Math.abs(car.vx * -fz + car.vz * fx);
+      let rate = 0;
+      let color = dust.road;
+      if (!airborne && near) {
+        if (!car.onRoad && speed > 3) {
+          rate = 12 + speed * 1.3;
+          color = dust.ground;
+        } else if (slowing > 9 && speed > 5) {
+          rate = 30;
+        } else if (sideways > 4.5) {
+          rate = 8 + sideways * 2;
+        }
+      }
+      memo.spare = Math.min(4, memo.spare + rate * dt);
+      while (memo.spare >= 1) {
+        memo.spare -= 1;
+        const [x, y, z] = at(1.0, (random() < 0.5 ? -1 : 1) * 0.85);
+        const kick = speed * 0.12;
+        particles.emit('dust', x, y, z, [-fx * kick + (random() - 0.5) * 1.6, 0.5 + random(), -fz * kick + (random() - 0.5) * 1.6], color);
+        if (!car.onRoad) {
+          const throw_ = [-fx * (2 + speed * 0.2) + (random() - 0.5) * 3, 3 + random() * 3, -fz * (2 + speed * 0.2) + (random() - 0.5) * 3];
+          if (dust.snowy) particles.emit('flake', x, y, z, throw_, WHITE, 1, base);
+          else if (random() < 0.6) particles.emit('clod', x, y, z, throw_, dust.clod, 1, base);
+        }
+      }
+
+      // Coming down from a jump: a ring of dust.
+      if (memo.flying && !airborne && near) {
+        for (let k = 0; k < 10; k++) {
+          const angle = (k / 10) * Math.PI * 2;
+          const [x, y, z] = at(0, 0, 0.2);
+          particles.emit('dust', x + Math.cos(angle), y, z + Math.sin(angle), [Math.cos(angle) * 4, 0.6, Math.sin(angle) * 4], car.onRoad ? dust.road : dust.ground, 1.2);
+        }
+      }
+
+      // Scraping along a wall: sparks off the side that is touching it.
+      if (car.hitWall && speed > 5 && near) {
+        memo.sparks += dt * 40;
+        const side = Math.sign(car.offset) || 1;
+        const right = [-fz * side, 0, fx * side];
+        while (memo.sparks >= 1) {
+          memo.sparks -= 1;
+          const [x, y, z] = at(random() * 1.6 - 0.8, side * 0.95, 0.5);
+          particles.emit('spark', x, y, z, [right[0] * 2 - fx * speed * 0.3 + (random() - 0.5) * 3, 1.5 + random() * 3, right[2] * 2 - fz * speed * 0.3 + (random() - 0.5) * 3], SPARK, 0.8, base);
+        }
+      }
+
+      // Knocked by something: a burst of sparks, bits of the car and smoke.
+      const event = racer.lastEvent;
+      if (event !== memo.event) {
+        memo.event = event;
+        if (event && near && (KNOCKS.has(event.kind) || event.kind === 'zap')) {
+          const [x, y, z] = at(0, 0, 0.9);
+          const zap = event.kind === 'zap';
+          const paint = linear(racer.build.paint);
+          for (let k = 0; k < 14; k++) {
+            const angle = random() * Math.PI * 2;
+            const out = 4 + random() * 6;
+            particles.emit('spark', x, y, z, [Math.cos(angle) * out, 2 + random() * 6, Math.sin(angle) * out], zap ? ZAP : SPARK, 1, base);
+          }
+          if (!zap) {
+            for (let k = 0; k < 9; k++) {
+              const angle = random() * Math.PI * 2;
+              const out = 2 + random() * 4;
+              particles.emit('debris', x, y, z, [Math.cos(angle) * out, 5 + random() * 5, Math.sin(angle) * out], k % 3 ? paint : SOOT.map((value) => value * 6), 1, base);
+            }
+            for (let k = 0; k < 4; k++) particles.emit('smoke', x + (random() - 0.5) * 1.5, y, z + (random() - 0.5) * 1.5, [0, 1 + random(), 0], [0.2, 0.2, 0.22]);
+          }
+        }
+      }
+
+      memo.speed = speed;
+      memo.flying = airborne;
+    });
+
+    // Things going off on the road: smoke where they were.
+    for (const bang of session.bangs) {
+      if (seenBangs.has(bang)) continue;
+      seenBangs.add(bang);
+      if (bang.kind !== 'blast' || Math.hypot(bang.x - camera.eye[0], bang.z - camera.eye[2]) > HEARING) continue;
+      const y = (bang.y ?? 0) + 0.6;
+      for (let k = 0; k < 5; k++) particles.emit('smoke', bang.x + (random() - 0.5) * 2, y, bang.z + (random() - 0.5) * 2, [(random() - 0.5) * 2, 1.5 + random(), (random() - 0.5) * 2], [0.25, 0.23, 0.22], 1.2);
+    }
+    if (seenBangs.size > 40) seenBangs = new Set(session.bangs);
   }
 
   /** Draws the track's own hazard, if it has one. */
@@ -648,6 +785,7 @@ export function createRaceScene(renderer, view) {
         world.scenery,
       ],
       shadow: { strength: theme.shadow },
+      sprites: [particles.build(camera.eye, camera.target)].filter(Boolean),
       glows: glowPool.active,
     });
   }

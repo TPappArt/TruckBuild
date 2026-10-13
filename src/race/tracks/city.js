@@ -7,13 +7,13 @@ import { fireDrum, jersey, ruin, wreck } from '../setpieces.js';
 // through the old high street is full of zombies, and bits of the sky
 // keep falling on it.
 
-const asphalt = material('#373940', { spec: 0.05 });
-const concrete = material('#8a8780', { spec: 0.05 });
-const concreteDark = material('#5e5c58', { spec: 0.05 });
-const brick = material('#7a4a3a', { spec: 0.05 });
-const brickDark = material('#56342a', { spec: 0.05 });
-const steel = material('#39404f', { spec: 0.3 });
-const rust = material('#9a4f2a', { spec: 0.2 });
+const asphalt = material('#373940', { spec: 0.05, tex: 'asphalt' });
+const concrete = material('#8a8780', { spec: 0.05, tex: 'concrete' });
+const concreteDark = material('#5e5c58', { spec: 0.05, tex: 'concrete' });
+const brick = material('#7a4a3a', { spec: 0.05, tex: 'brick' });
+const brickDark = material('#56342a', { spec: 0.05, tex: 'brick' });
+const steel = material('#39404f', { spec: 0.3, tex: 'metal' });
+const rust = material('#9a4f2a', { spec: 0.2, tex: 'metal', strength: 0.6 });
 const hazard = material('#f2c230', { spec: 0.2 });
 const hazardDark = material('#23252b', { spec: 0.1 });
 const lit = material('#ffc56a', { glow: 0.9 });
@@ -22,11 +22,11 @@ const toxic = material('#9dff4a', { glow: 0.9 });
 const screen = material('#6fe0ff', { glow: 0.8 });
 const weed = material('#6f8a3a', { spec: 0 });
 const weedPale = material('#9aa85a', { spec: 0 });
-const dirt = material('#5a5148', { spec: 0 });
-const dirtDark = material('#4a433c', { spec: 0 });
+const dirt = material('#5a5148', { spec: 0, tex: 'dirt' });
+const dirtDark = material('#4a433c', { spec: 0, tex: 'dirt' });
 const slick = material('#2c2a30', { spec: 0 });
 const paintWhite = material('#d9d6cc', { spec: 0 });
-const bark = material('#3a332e', { spec: 0.05 });
+const bark = material('#3a332e', { spec: 0.05, tex: 'bark' });
 const containerLooks = ['#c9534a', '#3f7fbf', '#d9a23a', '#4f9a6a'].map((hex) => material(hex, { spec: 0.2 }));
 
 /** A shipping container, ribbed. Runs along z. 60 triangles. */
@@ -152,12 +152,12 @@ export const city = {
   grain: 0.22,
   cinematic: { eye: [10, -70, 6], target: [-2, -6, 8], fov: 1.0, cars: -42 },
 
-  ground: material('#72675c'),
+  ground: material('#72675c', { tex: 'gravel' }),
   road: {
     surface: asphalt,
-    shoulder: material('#77736c'),
-    wear: material('#6a6058'),
-    patch: material('#46484f'),
+    shoulder: material('#77736c', { tex: 'concrete', metres: 2 }),
+    wear: material('#6a6058', { tex: 'dirt' }),
+    patch: material('#46484f', { tex: 'asphalt' }),
     scuff: material('#2f3034'),
     edge: material('#d9d6cc'),
     kerbA: hazard,
@@ -167,6 +167,11 @@ export const city = {
     chequerLight: material('#f1efe6'),
   },
   preview: { ground: '#72675c', road: '#373940', accent: '#f2c230' },
+  // Pictures on and beside the road (world.js) and on the walls (roadworks.js).
+  decals: {
+    road: [['crack', 22, 3.2], ['manhole', 12, 1.4], ['oil', 10, 3], ['puddle', 6, 3.4]],
+    verge: [['oil', 8, 2.6], ['crack', 10, 3]],
+  },
 
   // Flyovers, underpasses and central reservations: concrete and hazard
   // paint, with street lamps down the middle.
@@ -176,13 +181,16 @@ export const city = {
     trim: hazard,
     roof: material('#2c2a30', { spec: 0.05 }),
     lamp: lit,
-    island: material('#5a5855', { spec: 0 }),
+    island: material('#5a5855', { spec: 0, tex: 'concrete' }),
+    graffiti: ['tagZap', 'smiley', 'tagVroom', 'poster', 'bolt', 'tagHonk', 'crown', 'tagFizz', 'star', 'poster'],
     arch: material('#3a3b40', { spec: 0 }),
   },
   median: () => lampPost(concreteDark, lit, 6),
 
   paintGround({ paint, random, track }) {
-    const tones = [dirt, dirtDark, material('#736a5e'), material('#625c54')];
+    const slab = material('#5a5855', { tex: 'concrete' });
+    const slabPale = material('#6e6c68', { tex: 'concrete' });
+    const tones = [dirt, dirtDark, material('#736a5e', { tex: 'gravel' }), material('#625c54', { tex: 'dirt' })];
     for (let i = 0; i < 90; i++) {
       paint.blob(random.range(-330, 330), random.range(-330, 330), random.range(14, 44), random.range(8, 22), random.range(0, Math.PI), random.pick(tones));
     }
@@ -194,7 +202,7 @@ export const city = {
       const w = random.range(14, 30);
       const d = random.range(10, 22);
       const corner = (a, b) => [x + a * Math.cos(turn) - b * Math.sin(turn), z + a * Math.sin(turn) + b * Math.cos(turn)];
-      paint.polygon([corner(-w, -d), corner(w, -d), corner(w, d), corner(-w, d)], random() < 0.5 ? material('#5a5855') : material('#6e6c68'));
+      paint.polygon([corner(-w, -d), corner(w, -d), corner(w, d), corner(-w, d)], random() < 0.5 ? slab : slabPale);
       for (let bay = -w + 3; bay < w - 2; bay += 3.2) {
         paint.polygon([corner(bay, -d + 1), corner(bay + 0.2, -d + 1), corner(bay + 0.2, -d + 6), corner(bay, -d + 6)], paintWhite);
       }
@@ -219,10 +227,10 @@ export const city = {
   decorate({ random, beside, across, landmark, spots, track, place }) {
     // The skyline: gutted towers at a distance, all the way round.
     const towers = [
-      ruin(16, 14, 9, concrete, concreteDark, 5),
-      ruin(14, 12, 6, brick, brickDark, 2),
-      ruin(18, 14, 12, concreteDark, concrete, 8),
-      ruin(12, 12, 4, concrete, brickDark, 1),
+      ruin(16, 14, 9, concrete, concreteDark, 5, ['tagVroom', 'poster', 'smiley', 'tagZap']),
+      ruin(14, 12, 6, brick, brickDark, 2, ['tagHonk', 'crown', 'tagFizz', 'bolt']),
+      ruin(18, 14, 12, concreteDark, concrete, 8, ['poster', 'tagZap', 'star', 'tagVroom']),
+      ruin(12, 12, 4, concrete, brickDark, 1, ['smiley', 'tagFizz', 'poster', 'tagHonk']),
     ];
     for (let i = 0; i < 26; i++) {
       const angle = (i / 26) * Math.PI * 2 + random.range(-0.1, 0.1);
@@ -248,7 +256,7 @@ export const city = {
     const barrel = drum(material('#3f7fbf', { spec: 0.2 }), steel);
     const leaking = drum(material('#3f6b45', { spec: 0.2 }), toxic);
     const board = barricade(hazard, hazardDark);
-    const wallBlock = jersey();
+    const wallBlock = jersey('tagVroom');
     const box = crate(1.2);
     const tyres = tyreStack(hazard, 3);
     const pylon = cone(material('#ff7a2e', { spec: 0.2 }));

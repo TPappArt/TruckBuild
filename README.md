@@ -125,8 +125,8 @@ nothing to sign in to and nothing is sent anywhere.
 | Windows | `FizzbangRally-Setup.exe` | A setup program for Windows 10 and 11. Installs for the current user (no administrator password), with Start menu and desktop shortcuts and an entry under "Installed apps" to remove it. |
 | Windows | `FizzbangRally.exe` | The same game as one program that runs where it is, with no setup. |
 
-**Where they come from.** Pushing a version tag (`git tag v0.7.0 && git push
-origin v0.7.0`) runs the *Installers* workflow, which builds all three,
+**Where they come from.** Pushing a version tag (`git tag v0.8.0 && git push
+origin v0.8.0`) runs the *Installers* workflow, which builds all three,
 installs and starts the Android app on an emulator, installs, runs and
 removes the Windows one on a Windows machine, and puts the files in a draft
 release for someone to look over and publish. It can also be started by hand
@@ -503,14 +503,22 @@ the scene and no lines.
 
 ### The logo and the icon
 
-The logo is drawn by `src/ui/logo.js` as SVG, around whatever the game is
-called: the last word of the name goes on the ribbon and the rest across the
-middle in big letters, so it survives a rename. Behind the letters are a
-bottle of fizz that has just popped its own cork, a tyre and a chequered
-flag. The letters are ordinary text in the game's font, stacked in layers to
-look solid: a shadow, a gold side for depth, a gold trim, a dark outline,
-the face of the letter and a shine. There are two arrangements, one for wide
-screens and one for tall; the stylesheet shows whichever fits.
+The logo (`src/ui/logo.js`) is the game's name in chunky cartoon capitals on
+a badge: navy, edged in red with gold rivets. The bottle of fizz that has
+just popped its own cork leans in over one corner, with a tyre and a
+chequered flag behind. The last word of the name goes underneath, smaller
+and white; the rest goes across the middle in gold, arched, with the end
+letters a little bigger and leaning out.
+
+The lettering (`src/ui/lettering.js`) is the project's own alphabet, A to Z,
+0 to 9 and a little punctuation, drawn as straight-edged outlines on a
+grid, so it looks the same on every device and survives a rename (letters
+it does not have, it leaves out; accents are dropped). Each letter is built
+up in layers: a thick dark outline round the whole word; deep blue sides
+where it stands out from the page, each face shaded by which way it faces;
+a chiselled bevel all round, light on the edges facing up and shaded on
+those facing down; then the face with a gradient and a shine. There are two
+arrangements, wide and tall; the stylesheet shows whichever fits.
 
 The app icon is the bottle looking out of the tyre. `npm run icons` writes
 it to `icons/icon.svg` (rounded, with a gold edge) and
@@ -589,7 +597,7 @@ It is fast because of how little it draws. Anything static is merged into a
 single mesh with colour stored per vertex (`engine/bake.js`): a whole track's
 scenery is one or two draw calls, and a car is two to six however elaborate
 the build, and so is the sky, stars and all. A track is 35 to 60 thousand
-triangles, ground, scenery and built road together. A race is about 90
+triangles, ground, scenery and built road together. A race is about 100
 draw calls, most of them the cars and the pickups near them with their
 rings, halos and shadows; pickups out of sight are not drawn. Two built
 tracks are kept in memory at a time.
@@ -603,17 +611,59 @@ been comfortably fast for a while it tries a step back up. Nothing else
 about the picture changes. `GAME.adaptiveResolution` in `src/config.js`
 turns it off.
 
+### Textures
+
+Every texture is on one sheet, the atlas (`src/engine/atlas.js`): 512 by
+512 pixels holding 42 small pictures between 16 and 128 pixels across. The
+game draws the sheet itself at start-up, in a few hundredths of a second, so
+there are no image files to download. It goes to the graphics card once,
+as one texture.
+
+| Kind | Pictures | How they are used |
+| --- | --- | --- |
+| Patterns | asphalt, gravel, grass, sand, snow, dirt, rock, stone blocks, brick, planks, concrete, leaves, cobbles, mud, ice, bark, tread plate | A grey pattern that repeats without a seam. A material asks for one by name (`material('#4a8a3a', { tex: 'grass' })`) and it multiplies the material's colour, so one grass pattern does green grass, dead grass and swamp grass. It is laid on by where a surface is in the world: from above for what faces up, from the side for what stands up. Nothing needs unwrapping. |
+| Decals | five graffiti tags, a smiley, a crown, a bolt, a star, a race poster, hieroglyphs, hazard chevrons, a drain cover, cracks, oil, a puddle, a cobweb, paw prints, moss, a drift of sand, a patch of ice | A picture with clear parts, stuck on once: on walls (`k.decal()` in a part or prop, or along bridge and tunnel walls) or flat on the ground (each track's `decals` list). |
+| Sprites | puff, spark, chunk, flake | Soft white shapes for particles, coloured by whatever uses them. |
+
+Two things keep the patterns from looking like cheap wallpaper. A second,
+four times larger copy of each is laid over the first, which hides where it
+repeats. And both fade away as their pixels shrink below the size of a
+screen pixel, which is what stops a pattern shimmering in the distance
+(the usual cure, smaller copies of the texture, does not work on a sheet of
+pictures that repeat, because neighbours bleed into each other).
+
+Graffiti and the like are on: the walls of every bridge and tunnel (each
+track picks its own: tags in the city, hieroglyphs in the desert, cobwebs
+and BOO! at the haunted manor), the ruined buildings and concrete barriers
+of Zombie City, the inside of the pyramid, and the manor's windows. On the
+road and beside it: cracks, drain covers, oil and puddles, drifts of sand
+in the desert, ice in the mountains, paw prints in the snow and the
+graveyard, moss in the swamp.
+
+### Dust, sparks and bits
+
+The cars throw things up (`src/race/particles.js`): dust from the back
+wheels when braking hard or sliding; dust and clods of earth (or snow) off
+the road; a ring of dust on landing from a jump; sparks scraping along a
+wall; and when something knocks a car, a burst of sparks, bits of its paint
+and a puff of smoke. Each particle is a sprite from the atlas turned to face
+the camera, and all of them together are one mesh, rebuilt each frame and
+drawn in one call, so they cost about as much as one more car. Only cars
+near the camera make any.
+
 A frame is drawn in this order (`engine/renderer.js`):
 
 1. The sky.
 2. Openings: where the road dives below ground, the shape of the hole is
    marked in the stencil buffer and nothing else.
 3. The ground: flat layers of paint, each drawn over the last, everywhere
-   except the openings. The ground records its depth, so anything that dips
-   below it (the foot of a cliff sunk into the snow, say) is hidden by it.
+   except the openings, then the decals on it, blended in at their edges.
+   The ground records its depth, so anything that dips below it (the foot
+   of a cliff sunk into the snow, say) is hidden by it.
 4. Built road: viaducts, cuttings and tunnels, as ordinary solid shapes.
 5. Shadows, flattened onto the ground or onto the road a car is on.
-6. Everything solid, then everything that glows.
+6. Everything solid (decals on walls are cut out where they are clear),
+   then dust and sparks, then everything that glows.
 
 ### Atmosphere
 
@@ -673,7 +723,7 @@ src/characters.js       the drivers a player can be, drawn as SVG faces
 src/vehicle.js          assembles a vehicle from a build
 src/parts/              the part catalogue, prices, and the kit parts are modelled with
 src/garage/             build phase: turntable scene, thumbnails, picker and shop
-src/ui/                 character and settings screens, loading screen, windscreen effects, icons, the logo
+src/ui/                 character and settings screens, loading screen, windscreen effects, icons, the logo and its lettering
 src/race/car.js         driving model, computer driver, collisions
 src/race/session.js     race rules: grid, countdown, laps, places, finish, and what the villain gets up to
 src/race/grid.js        who lines up: difficulty levels, the villain, rivals' names, faces and builds
@@ -686,6 +736,7 @@ src/race/setpieces.js   what the landmarks look like
 src/race/combat.js      weapons: shots, always-on melee, reloading
 src/race/chatter.js     what the drivers say in their speech bubbles, and when
 src/race/props.js       what events, creatures and shots look like
+src/race/particles.js   dust, sparks and bits thrown up by the cars
 src/race/dressing.js    trackside furniture shared by every track
 src/race/track.js       the centre line: sampling, projection, curvature, heights, islands
 src/race/roadworks.js   viaducts, cuttings, tunnels and islands, built from a track
@@ -695,7 +746,7 @@ src/race/scene.js       3D side of a race, the chase camera, track pictures
 src/race/vehicle.js     merges a build into a few meshes for racing
 src/race/hud.js         place, lap, time, coins, nameplates, results, track picker
 src/race/controls.js    keyboard and one-finger joystick
-src/engine/             shape builders, scene nodes, materials, baking, WebGL renderer
+src/engine/             shape builders, scene nodes, materials, baking, the texture atlas, WebGL renderer
 src/fullscreen.js       Fullscreen API wrapper
 src/viewport.js         canvas size and pixel density tracking
 src/governor.js         lowers the pixel density on devices that cannot keep up

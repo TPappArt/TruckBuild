@@ -1,5 +1,5 @@
 import { bake } from './engine/bake.js';
-import { linear, material } from './engine/materials.js';
+import { linear, material, texOf } from './engine/materials.js';
 import { Node } from './engine/node.js';
 import { kit } from './parts/kit.js';
 import { bunting, cone, hayBale, tyreStack } from './race/dressing.js';
@@ -57,10 +57,10 @@ function ground(x, z) {
   return hill(z) * (1 + 0.01 * out) + 0.011 * out * out + roll * Math.min(1, out / 7);
 }
 
-/** Collects triangles, each flat shaded in its own colour, into one mesh. */
+/** Collects triangles, each flat shaded in its own colour (and pattern: see atlas.js), into one mesh. */
 function createFaces() {
-  const data = { positions: [], normals: [], colors: [], indices: [] };
-  const triangle = (a, b, c, colour) => {
+  const data = { positions: [], normals: [], colors: [], texs: [], indices: [] };
+  const triangle = (a, b, c, colour, tex) => {
     const ux = b[0] - a[0];
     const uy = b[1] - a[1];
     const uz = b[2] - a[2];
@@ -81,14 +81,16 @@ function createFaces() {
       data.positions.push(p[0], p[1], p[2]);
       data.normals.push(nx, ny, nz);
       data.colors.push(colour[0], colour[1], colour[2]);
+      data.texs.push(...tex);
     }
     data.indices.push(base, base + 1, base + 2);
   };
   return {
-    /** A four-cornered patch, corners in order round its edge. */
-    patch(a, b, c, d, colour) {
-      triangle(a, b, c, colour);
-      triangle(a, c, d, colour);
+    /** A four-cornered patch, corners in order round its edge. `tex` is a pattern's name, or none. */
+    patch(a, b, c, d, colour, tex = null) {
+      const pattern = tex ? texOf(material('#ffffff', { tex })) : [0, 0, 0, 0];
+      triangle(a, b, c, colour, pattern);
+      triangle(a, c, d, colour, pattern);
     },
     finish() {
       const node = new Node();
@@ -100,6 +102,7 @@ function createFaces() {
         normals: new Float32Array(data.normals),
         colors: new Float32Array(data.colors),
         params,
+        texs: new Float32Array(data.texs),
         indices: new Uint16Array(data.indices),
         triangles: data.indices.length / 3,
       };
@@ -128,12 +131,21 @@ function buildTerrain(random) {
       const x1 = xs[i + 1];
       const middle = Math.abs((x0 + x1) / 2);
       let colour;
-      if (middle < ROAD) colour = tarmac[(row >> 2) % 2];
-      else if (middle < ROAD + KERB) colour = kerbs[(row >> 1) % 2];
-      else if (middle < ROAD + KERB + 3) colour = verge[row % 2];
-      else colour = grass[Math.floor(random() * grass.length)];
+      let tex = null;
+      if (middle < ROAD) {
+        colour = tarmac[(row >> 2) % 2];
+        tex = 'asphalt';
+      } else if (middle < ROAD + KERB) {
+        colour = kerbs[(row >> 1) % 2];
+      } else if (middle < ROAD + KERB + 3) {
+        colour = verge[row % 2];
+        tex = 'grass';
+      } else {
+        colour = grass[Math.floor(random() * grass.length)];
+        tex = 'grass';
+      }
       const corner = (x, at) => [x, ground(x, at), at];
-      faces.patch(corner(x0, z), corner(x1, z), corner(x1, z + step), corner(x0, z + step), colour);
+      faces.patch(corner(x0, z), corner(x1, z), corner(x1, z + step), corner(x0, z + step), colour, tex);
     }
     // The centre line: dashes, a finger above the tarmac.
     if (row % 4 < 2) {
@@ -169,7 +181,7 @@ function buildDressing(random) {
     set.add(copy);
   };
 
-  const tree = fir(material('#2f9a4d', { spec: 0.05 }), material('#237a3c', { spec: 0.05 }), material('#7a5234', { spec: 0.05 }));
+  const tree = fir(material('#2f9a4d', { spec: 0.05, tex: 'leaves' }), material('#237a3c', { spec: 0.05, tex: 'leaves' }), material('#7a5234', { spec: 0.05, tex: 'bark' }));
   for (let i = 0; i < 46; i++) {
     const side = i % 2 ? 1 : -1;
     put(tree, side * random.range(15, 78), random.range(-34, 40), { turn: random() * 6, scale: random.range(0.8, 1.7) });

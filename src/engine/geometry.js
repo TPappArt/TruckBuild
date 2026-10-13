@@ -10,6 +10,20 @@
 
 const TAU = Math.PI * 2;
 
+/**
+ * A flat picture facing +z, `width` by `height` and centred on the origin,
+ * showing the atlas tile with id `tile` (see atlas.js): graffiti, a sign.
+ * 2 triangles.
+ */
+export function decal(width, height, tile) {
+  const w = width / 2;
+  const h = height / 2;
+  const mesh = meshData([-w, -h, 0, w, -h, 0, w, h, 0, -w, h, 0], [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], [0, 1, 2, 0, 2, 3]);
+  // [tile, -1, u, v] for each corner: the top of the picture is v = 0.
+  mesh.texs = new Float32Array([tile, -1, 0, 1, tile, -1, 1, 1, tile, -1, 1, 0, tile, -1, 0, 0]);
+  return mesh;
+}
+
 /** Wraps raw arrays as mesh data. Use it for one-off custom shapes. */
 export function meshData(positions, normals, indices) {
   return {

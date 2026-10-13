@@ -7,15 +7,15 @@ import { faceted } from '../world.js';
 // low, so cars slide wide if they carry too much speed into a corner.
 // Avalanche Pass is where the snowballs and the wind are.
 
-const rock = material('#7c8ba3', { spec: 0.05 });
-const snow = material('#f6faff', { spec: 0.2, shine: 20 });
-const snowShade = material('#d5e6f6', { spec: 0.1 });
-const pine = material('#2f7d5b', { spec: 0.08 });
-const pineDark = material('#256a4d', { spec: 0.08 });
-const trunk = material('#6b4a33', { spec: 0.05 });
-const log = material('#8a5f3c', { spec: 0.05 });
-const logDark = material('#5f4126', { spec: 0.05 });
-const ice = material('#9fdcff', { spec: 0.9, shine: 70 });
+const rock = material('#7c8ba3', { spec: 0.05, tex: 'rock' });
+const snow = material('#f6faff', { spec: 0.2, shine: 20, tex: 'snow' });
+const snowShade = material('#d5e6f6', { spec: 0.1, tex: 'snow' });
+const pine = material('#2f7d5b', { spec: 0.08, tex: 'leaves', strength: 0.5 });
+const pineDark = material('#256a4d', { spec: 0.08, tex: 'leaves', strength: 0.5 });
+const trunk = material('#6b4a33', { spec: 0.05, tex: 'bark' });
+const log = material('#8a5f3c', { spec: 0.05, tex: 'bark' });
+const logDark = material('#5f4126', { spec: 0.05, tex: 'bark' });
+const ice = material('#9fdcff', { spec: 0.9, shine: 70, tex: 'ice' });
 const coal = material('#2b2f3a', { spec: 0.2 });
 const carrot = material('#ff8a2a', { spec: 0.2 });
 const pole = material('#ff7a2e', { spec: 0.2 });
@@ -23,7 +23,7 @@ const scarf = material('#e4463a', { spec: 0.2 });
 const blue = material('#2f7df2', { spec: 0.2 });
 const yellow = material('#ffc928', { spec: 0.2 });
 const windowGlow = material('#ffd27a', { glow: 1 });
-const pond = material('#bfe3fb');
+const pond = material('#bfe3fb', { tex: 'ice' });
 const pondEdge = material('#e2f2ff');
 const pondCrack = material('#8fbfe0');
 const frostGrass = material('#9bb7a8', { spec: 0 });
@@ -165,12 +165,12 @@ export const snowy = {
   grain: 0.1,
   cinematic: { eye: [10, -78, 9], target: [-2, -10, 7], fov: 0.95, cars: -40 },
 
-  ground: material('#f1f6fc'),
+  ground: material('#f1f6fc', { tex: 'snow' }),
   road: {
-    surface: material('#627184'),
-    shoulder: material('#dbe8f5'),
-    wear: material('#c5d6e8'),
-    patch: material('#6b7b8f'),
+    surface: material('#627184', { tex: 'asphalt' }),
+    shoulder: material('#dbe8f5', { tex: 'snow' }),
+    wear: material('#c5d6e8', { tex: 'ice' }),
+    patch: material('#6b7b8f', { tex: 'asphalt' }),
     scuff: material('#52607a'),
     edge: material('#e9f4ff'),
     kerbA: material('#2f7df2'),
@@ -180,22 +180,27 @@ export const snowy = {
     chequerLight: material('#ffffff'),
   },
   preview: { ground: '#e6f0fa', road: '#627184', accent: '#2f7df2' },
+  decals: {
+    road: [['icePatch', 16, 4], ['crack', 8, 3]],
+    verge: [['paws', 18, 2.6]],
+  },
 
   // Viaducts, cuttings and islands: blue ice and grey rock, with pines
   // down the middle.
   works: {
-    wall: material('#8fa9c4', { spec: 0.3, shine: 30 }),
-    wallDark: material('#63728f', { spec: 0.05 }),
+    wall: material('#8fa9c4', { spec: 0.3, shine: 30, tex: 'ice' }),
+    wallDark: material('#63728f', { spec: 0.05, tex: 'stone' }),
     trim: blue,
     roof: material('#3d4860', { spec: 0.05 }),
     lamp: material('#c9f1ff', { glow: 1 }),
-    island: material('#f1f6fc', { spec: 0 }),
+    island: material('#f1f6fc', { spec: 0, tex: 'snow' }),
+    graffiti: ['tagVroom', 'star', 'smiley', 'crown'],
     arch: material('#4c5a78', { spec: 0 }),
   },
   median: () => pineTree(),
 
   paintGround({ paint, random, track }) {
-    const tones = [material('#e2edf8'), material('#fbfdff'), material('#d5e6f6')];
+    const tones = ['#e2edf8', '#fbfdff', '#d5e6f6'].map((hex) => material(hex, { tex: 'snow' }));
     for (let i = 0; i < 90; i++) {
       paint.blob(random.range(-330, 330), random.range(-330, 330), random.range(14, 44), random.range(8, 22), random.range(0, Math.PI), random.pick(tones));
     }

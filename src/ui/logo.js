@@ -1,22 +1,18 @@
 // The game's logo and its app icon, as SVG markup.
 //
 // The logo is drawn around whatever the game is called (config.js), so it
-// survives a rename: the last word of the name goes on the ribbon and the
-// rest across the middle in big letters. Behind the letters: a bottle of
-// fizz that has just popped its own cork and is very pleased about it, a
-// tyre, and a chequered flag.
-//
-// The letters are ordinary text in the game's font, stacked up in layers
-// to look solid: a shadow, a gold side that gives them depth, a gold trim,
-// a dark outline, the face of the letter and a shine across the top.
+// survives a rename: the last word of the name goes underneath, smaller,
+// and the rest across the middle in big letters, both in the chunky
+// cartoon lettering of lettering.js, on a badge with bolts out of its ends.
+// Over one corner: a bottle of fizz that has just popped its own cork and
+// is very pleased about it; behind: a tyre and a chequered flag.
 //
 // `npm run icons` writes `iconSvg()` out as icons/icon.svg, which the other
 // icon files are made from (see the README).
 
-const FONT = "ui-rounded, 'Arial Rounded MT Bold', 'Nunito', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif";
-const INK = '#0d1d4d';
+import { inset, measure, word } from './lettering.js';
 
-const escape = (text) => text.replace(/[&<>"]/g, (mark) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[mark]);
+const INK = '#0d1d4d';
 
 // Colours shared by everything below. `id` keeps two drawings on one page
 // from tripping over each other's gradients.
@@ -101,58 +97,89 @@ function flag(id) {
     <circle cy="-214" r="11" fill="url(#${id}-gold)" stroke="${INK}" stroke-width="5"/>`;
 }
 
-// Where everything goes, for a wide space and for a tall one.
-const LAYOUTS = {
-  wide: { width: 980, height: 430, tyre: 'translate(216 300) rotate(-12)', bottle: 'translate(218 412) rotate(-9) scale(1.08)', flag: 'translate(924 336) rotate(8) scale(-1 1)', x: 616, y: 312, fit: 600 },
-  tall: { width: 640, height: 670, tyre: 'translate(128 318) rotate(-12) scale(1.1)', bottle: 'translate(318 416) rotate(-7) scale(1.16)', flag: 'translate(580 420) rotate(9) scale(-1.1 1.1)', x: 320, y: 552, fit: 580 },
-};
+/** A badge for the name to sit on: a wide shield with a peak top and bottom, edged in red. */
+function badge(id, cx, cy, w, h) {
+  const peak = h * 0.42;
+  const outline = [
+    [cx - w, cy],
+    [cx - w + h * 0.75, cy - h],
+    [cx - w * 0.3, cy - h],
+    [cx, cy - h - peak],
+    [cx + w * 0.3, cy - h],
+    [cx + w - h * 0.75, cy - h],
+    [cx + w, cy],
+    [cx + w - h * 0.75, cy + h],
+    [cx + w * 0.3, cy + h],
+    [cx, cy + h + peak],
+    [cx - w * 0.3, cy + h],
+    [cx - w + h * 0.75, cy + h],
+  ];
+  const ring = (points) => `M${points.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L')}Z`;
+  const rim = inset(outline, 15);
+  const plate = inset(outline, 30);
+  // Gold rivets round the rim.
+  const rivets = rim
+    .filter((_, i) => i % 2 === 1)
+    .map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="url(#${id}-gold)" stroke="${INK}" stroke-width="3"/>`)
+    .join('');
+  return `
+    <path d="${ring(outline)}" fill="${INK}" stroke="${INK}" stroke-width="18" stroke-linejoin="round" transform="translate(6 12)" opacity=".4"/>
+    <path d="${ring(outline)}" fill="#e4463a" stroke="${INK}" stroke-width="14" stroke-linejoin="round"/>
+    <path d="${ring(rim)}" fill="none" stroke="#ff8a7a" stroke-width="4" stroke-linejoin="round" opacity=".7"/>
+    <path d="${ring(plate)}" fill="url(#${id}-plate)" stroke="${INK}" stroke-width="7" stroke-linejoin="round"/>
+    <path d="${ring(inset(outline, 40))}" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="5" stroke-linejoin="round"/>
+    ${rivets}`;
+}
+
+// Colours of the two lines of lettering.
+const BIG = { face: ['#fffbe0', '#ffe14a', '#ffaa1f'], light: '#fffdf0', dark: '#c46a0a', side: ['#4a63ff', '#161b7a'], ink: '#0b1033' };
+const SMALL = { face: ['#ffffff', '#eef7ff', '#a9d4ff'], light: '#ffffff', dark: '#3f6fb4', side: ['#4a63ff', '#161b7a'], ink: '#0b1033' };
 
 /**
- * The logo for a game called `name`.
- * tall: the picture above the name (for a narrow screen) rather than beside it.
+ * The logo for a game called `name`: its name in chunky gold letters on a
+ * badge, the last word smaller underneath, with the bottle popping its cork
+ * over one corner, and a tyre and a chequered flag behind.
+ * tall: arranged for a narrow screen.
  * id:   a prefix for the names of its gradients, unique on the page.
  */
 export function logoSvg(name, { tall = false, id = tall ? 'logo-tall' : 'logo' } = {}) {
-  const at = tall ? LAYOUTS.tall : LAYOUTS.wide;
   const words = name.trim().split(/\s+/);
   const last = words.length > 1 ? words.pop() : '';
-  const top = escape(words.join(' ').toUpperCase());
-  const under = escape(last.toUpperCase());
-  // The big word is fitted to the width whatever font the device has.
-  const wide = Math.min(at.fit, top.length * 80);
-  const ribbon = Math.min(250, under.length * 40);
-  const word = `<text id="${id}-word" x="${at.x}" y="${at.y}" text-anchor="middle" font-family="${FONT}" font-size="128" font-weight="900" font-style="italic" textLength="${wide}" lengthAdjust="spacingAndGlyphs" stroke-linejoin="round">${top}</text>`;
-  const layer = (attributes) => `<use href="#${id}-word" ${attributes}/>`;
-  // The side of the letters: the same word again and again, each a little
-  // further down and to the right.
-  const depth = Array.from({ length: 7 }, (_, i) => layer(`transform="translate(${((7 - i) * 1.3).toFixed(1)} ${((7 - i) * 2.1).toFixed(1)})" fill="#a35f00" stroke="#a35f00" stroke-width="26"`)).join('');
+  const top = words.join(' ');
+  const width = tall ? 640 : 1000;
+  const height = tall ? 640 : 470;
+  // The big line as large as fits, then the small one under it.
+  const cx = tall ? width / 2 : 575;
+  const units = Math.max(1, measure(top));
+  // As big as fits with the badge round it, inside the picture.
+  const size = Math.min(tall ? 118 : 150, (width / 2 - Math.abs(width / 2 - cx) - 20) / ((units / 20) * 1.08 + 0.5));
+  const room = (units * size) / 10;
+  const cy = tall ? 440 : 262;
+  const big = word(top, { size, x: cx, y: cy + size * 0.42, colours: BIG, arch: size * 0.16, tilt: 0.1, swell: 0.12, id: `${id}-big` });
+  const smallSize = Math.min(size * 0.5, (room * 0.55) / Math.max(1, measure(last)) * 10);
+  const small = last ? word(last, { size: smallSize, x: cx, y: cy + size * 0.42 + smallSize * 1.25, colours: SMALL, arch: -smallSize * 0.08, tilt: -0.04, swell: 0.05, id: `${id}-small` }) : null;
+  // (The end letters are drawn a little bigger than they measure.)
+  const halfWide = (big.width / 2) * 1.08 + size * 0.5;
+  const halfTall = size * 0.72 + (small ? smallSize * 0.55 : 0);
 
-  return `<svg viewBox="0 0 ${at.width} ${at.height}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <defs>${defs(id)}${word}
-    <clipPath id="${id}-top"><rect x="0" y="${at.y - 118}" width="${at.width}" height="76"/></clipPath>
+  const scenery = tall
+    ? `<g transform="translate(150 250) rotate(-14) scale(0.95)">${tyre(id)}</g>
+       <g transform="translate(560 300) rotate(9) scale(-1 1)">${flag(id)}</g>`
+    : `<g transform="translate(938 380) rotate(14) scale(0.8)">${tyre(id)}</g>
+       <g transform="translate(905 238) rotate(10) scale(-0.95 0.95)">${flag(id)}</g>`;
+  const fizz = tall ? `<g transform="translate(330 352) rotate(-6) scale(1.05)">${bottle(id)}</g>` : `<g transform="translate(150 446) rotate(-14) scale(1.12)">${bottle(id)}</g>`;
+
+  return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>${defs(id)}
+    <linearGradient id="${id}-plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a3a8f"/><stop offset="1" stop-color="#121a52"/>
+    </linearGradient>
   </defs>
-  <g transform="${at.tyre}">${tyre(id)}</g>
-  <g transform="${at.flag}">${flag(id)}</g>
-  <g transform="${at.bottle}">${bottle(id)}</g>
-  <g transform="rotate(-3 ${at.x} ${at.y - 18})">
-    ${layer(`transform="translate(10 22)" fill="#061033" stroke="#061033" stroke-width="28" opacity=".45"`)}
-    ${depth}
-    ${layer(`fill="url(#${id}-gold)" stroke="url(#${id}-gold)" stroke-width="26"`)}
-    ${layer(`fill="${INK}" stroke="${INK}" stroke-width="13"`)}
-    ${layer(`fill="url(#${id}-face)"`)}
-    <g clip-path="url(#${id}-top)">${layer('fill="#ffffff" opacity=".55"')}</g>
-    ${
-      under
-        ? `<g transform="translate(${at.x} ${at.y + 54})">
-      <path d="M${-ribbon / 2 - 6} -22h-50l20 27-20 27h64z" fill="#a8261d" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
-      <path d="M${ribbon / 2 + 6} -22h50l-20 27 20 27h-64z" fill="#a8261d" stroke="${INK}" stroke-width="6" stroke-linejoin="round"/>
-      <rect x="${-ribbon / 2 - 24}" y="-34" width="${ribbon + 48}" height="62" rx="12" fill="url(#${id}-gold)" stroke="${INK}" stroke-width="6"/>
-      <rect x="${-ribbon / 2 - 16}" y="-26" width="${ribbon + 32}" height="46" rx="7" fill="#e4463a"/>
-      <text x="0" y="13" text-anchor="middle" font-family="${FONT}" font-size="46" font-weight="900" font-style="italic" textLength="${ribbon}" lengthAdjust="spacingAndGlyphs" fill="#ffffff" stroke="${INK}" stroke-width="7" stroke-linejoin="round" paint-order="stroke">${under}</text>
-    </g>`
-        : ''
-    }
-  </g>
+  ${scenery}
+  ${badge(id, cx, cy + (small ? smallSize * 0.45 : 0), halfWide, halfTall)}
+  ${fizz}
+  ${big.svg}
+  ${small ? small.svg : ''}
 </svg>`;
 }
 

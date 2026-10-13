@@ -1,4 +1,4 @@
-import { resolveMaterial } from './materials.js';
+import { resolveMaterial, texOf } from './materials.js';
 import { determinant3, normalMatrix } from './math.js';
 import { Node } from './node.js';
 
@@ -37,7 +37,7 @@ export function bake(root, { contact = null } = {}) {
   const result = new Node();
   let chunk = null;
   const start = () => {
-    chunk = { positions: [], normals: [], colors: [], params: [], indices: [] };
+    chunk = { positions: [], normals: [], colors: [], params: [], texs: [], indices: [] };
   };
   const flush = () => {
     if (!chunk || chunk.indices.length === 0) return;
@@ -47,6 +47,7 @@ export function bake(root, { contact = null } = {}) {
       normals: new Float32Array(chunk.normals),
       colors: new Float32Array(chunk.colors),
       params: new Float32Array(chunk.params),
+      texs: new Float32Array(chunk.texs),
       indices: new Uint16Array(chunk.indices),
       triangles: chunk.indices.length / 3,
     };
@@ -74,6 +75,10 @@ export function bake(root, { contact = null } = {}) {
     normalMatrix(n3, m);
     const mirrored = determinant3(m) < 0;
     const look = geometry.colors ? null : resolveMaterial(node.role);
+    // What each vertex says about textures: its own (a decal), or its
+    // material's pattern, or nothing.
+    const texs = geometry.texs || null;
+    const tex = look ? texOf(look) : texOf({});
     const base = chunk.positions.length / 3;
     const p = geometry.positions;
     const n = geometry.normals;
@@ -109,6 +114,12 @@ export function bake(root, { contact = null } = {}) {
       chunk.colors.push(r, g, b);
       if (look) chunk.params.push(look.spec, look.shine, look.glow);
       else chunk.params.push(geometry.params[v], geometry.params[v + 1], geometry.params[v + 2]);
+      if (texs) {
+        const t = (v / 3) * 4;
+        chunk.texs.push(texs[t], texs[t + 1], texs[t + 2], texs[t + 3]);
+      } else {
+        chunk.texs.push(tex[0], tex[1], tex[2], tex[3]);
+      }
     }
 
     const index = geometry.indices;

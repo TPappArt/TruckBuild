@@ -9,9 +9,9 @@ import { kit } from '../parts/kit.js';
 // a slab that pokes out a finger's width either side of its posts. Every
 // prop stays well under the 200 triangle budget.
 
-const steel = material('#39404f', { spec: 0.3 });
-const wood = material('#8c633a', { spec: 0.05 });
-const woodDark = material('#5f4126', { spec: 0.05 });
+const steel = material('#39404f', { spec: 0.3, tex: 'metal' });
+const wood = material('#8c633a', { spec: 0.05, tex: 'planks' });
+const woodDark = material('#5f4126', { spec: 0.05, tex: 'planks' });
 const rubber = material('#22252d', { spec: 0.1 });
 const white = material('#f4f1e6', { spec: 0.1 });
 const lampGlow = material('#ffe9a8', { glow: 1 });
@@ -176,7 +176,7 @@ export function bunting(length, looks, { flags = 12, height = 4, poles = true } 
 }
 
 /** A hay bale with two bands of twine. 36 triangles. */
-export function hayBale(straw = material('#e2c46a', { spec: 0 }), twine = material('#a9823a', { spec: 0 })) {
+export function hayBale(straw = material('#e2c46a', { spec: 0, tex: 'grass' }), twine = material('#a9823a', { spec: 0 })) {
   const k = kit();
   k.slab(straw, [1.9, 0.9, 1.0], { at: [0, 0.45, 0] });
   for (const x of [-0.5, 0.5]) k.slab(twine, [0.1, 0.94, 1.04], { at: [x, 0.45, 0] });

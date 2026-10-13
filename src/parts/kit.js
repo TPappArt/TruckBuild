@@ -1,4 +1,6 @@
-import { ball, box, cylinder, lathe, pointAlong, prism, quad, roundedBox, stretch } from '../engine/geometry.js';
+import { tileOf } from '../engine/atlas.js';
+import { ball, box, cylinder, decal, lathe, pointAlong, prism, quad, roundedBox, stretch } from '../engine/geometry.js';
+import { material } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
 
 // A small vocabulary for modelling parts in code. Each call adds one mesh to
@@ -12,12 +14,21 @@ import { Node } from '../engine/node.js';
 // Units are metres. +z is forward, +y is up and +x is the vehicle's left.
 // The first argument is always a material role from engine/materials.js.
 //
+// A decal is a picture from the atlas on a flat card (see engine/atlas.js):
+//
+//   k.decal('tagZap', [4, 2], { at: [0, 1.5, 3.01] });   // faces +z
+//
 // Triangle cost per call:
 //   box    44          slab  12           quad  2
 //   cyl    2 * seg, plus seg per cap      disc  seg
 //   ball   2 * seg * (rings - 1)          dome  seg * (2 * rings - 1)
 //   lathe  2 * seg per band (seg where a band touches the axis)
 //   prism  4 * points - 4
+//   decal  2
+
+// Decals bring their own colours: they are drawn on white, and not shiny.
+const PICTURE = material('#ffffff', { spec: 0.05 });
+
 export function kit(node = new Node()) {
   const place = (role, geometry, { at, rot, scale } = {}) => {
     const mesh = new Node();
@@ -68,6 +79,9 @@ export function kit(node = new Node()) {
 
     /** Extruded outline: points, { depth, axis, smooth }. See engine/geometry.js. */
     prism: (role, points, shape, options) => place(role, prism(points, shape), options),
+
+    /** A picture from the atlas, `size` = [width, height], facing +z. Its back is not drawn. */
+    decal: (name, size, options) => place(PICTURE, decal(size[0], size[1], tileOf(name).id), options),
 
     /** A nested group with its own position and rotation, e.g. for a moving arm. */
     sub: ({ at, rot, scale, motion } = {}) => {

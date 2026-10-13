@@ -1,3 +1,5 @@
+import { tileOf } from './atlas.js';
+
 // Shared materials, looked up by role. Parts never pick raw colours: they say
 // what a surface is ("paint", "rubber", "glass") and the look is decided here,
 // which keeps every part in one palette and lets the player repaint a vehicle
@@ -9,13 +11,34 @@ export function linear(hex) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((c) => Math.pow(c / 255, 2.2));
 }
 
-/** Makes a material. Scenery uses this directly for one-off colours. */
-export const material = (hex, { spec = 0.25, shine = 30, glow = 0 } = {}) => ({
-  color: linear(hex),
-  spec, // highlight strength
-  shine, // highlight tightness
-  glow, // 0 = fully lit by the scene, 1 = self-lit
-});
+/**
+ * Makes a material. Scenery uses this directly for one-off colours.
+ *
+ * `tex` lays a repeating pattern from the atlas over it (see atlas.js for
+ * the names): 'grass', 'brick', 'asphalt'... `metres` is how much ground one
+ * repeat covers and `strength` how strongly it shows, each defaulting to
+ * what suits the pattern.
+ */
+export const material = (hex, { spec = 0.25, shine = 30, glow = 0, tex = null, metres, strength } = {}) => {
+  const tile = tex ? tileOf(tex) : null;
+  return {
+    color: linear(hex),
+    spec, // highlight strength
+    shine, // highlight tightness
+    glow, // 0 = fully lit by the scene, 1 = self-lit
+    tex: tile ? [tile.id, metres ?? tile.metres, strength ?? tile.strength, 0] : null,
+  };
+};
+
+/** The same material with a pattern laid over it (see `material`). */
+export const textured = (look, tex, { metres, strength } = {}) => {
+  const tile = tileOf(tex);
+  return { ...look, tex: [tile.id, metres ?? tile.metres, strength ?? tile.strength, 0] };
+};
+
+const NO_TEX = [0, 0, 0, 0];
+/** What a vertex of a surface in `look` says about textures: four numbers (see renderer.js). */
+export const texOf = (look) => look.tex || NO_TEX;
 
 export const materials = {
   paint: material('#f23a2f', { spec: 0.5, shine: 45 }),

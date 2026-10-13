@@ -1,6 +1,7 @@
 import { bake } from '../engine/bake.js';
 import { ball, facet, pointAlong } from '../engine/geometry.js';
-import { linear, material } from '../engine/materials.js';
+import { tileOf } from '../engine/atlas.js';
+import { linear, material, texOf } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
 import { kit } from '../parts/kit.js';
 import { cornerSign } from './dressing.js';
@@ -56,6 +57,7 @@ function createPainter() {
       normals: new Float32Array(data.normals),
       colors: new Float32Array(data.colors),
       params: new Float32Array(data.params),
+      texs: new Float32Array(data.texs),
       indices: new Uint16Array(data.indices),
       triangles: data.indices.length / 3,
     };
@@ -66,15 +68,19 @@ function createPainter() {
   /** points: [[x, z], ...] forming a convex polygon. look: a material. */
   function polygon(points, look) {
     if (data && data.positions.length / 3 + points.length > MAX_VERTICES) flush();
-    data ??= { positions: [], normals: [], colors: [], params: [], indices: [] };
+    data ??= { positions: [], normals: [], colors: [], params: [], texs: [], indices: [] };
     const base = data.positions.length / 3;
     total += points.length;
-    for (const [x, z] of points) {
+    const tex = texOf(look);
+    points.forEach(([x, z], i) => {
       data.positions.push(x, 0, z);
       data.normals.push(0, 1, 0);
       data.colors.push(look.color[0], look.color[1], look.color[2]);
       data.params.push(0, 1, look.glow);
-    }
+      // A decal gives each corner its place in the picture.
+      if (look.uv) data.texs.push(tex[0], -1, look.uv[i][0], look.uv[i][1]);
+      else data.texs.push(tex[0], tex[1], tex[2], tex[3]);
+    });
     for (let i = 1; i < points.length - 1; i++) {
       // Wind each triangle so it faces up, whichever way the outline ran.
       const [ax, az] = points[0];
@@ -120,13 +126,41 @@ function createPainter() {
     }
   }
 
+  const WHITE = linear('#ffffff');
+  const pending = []; // decals, kept back to go on top of everything else
+  /**
+   * A picture from the atlas laid flat on the ground (see atlas.js):
+   * `width` across and `length` along `turn`, centred on (x, z). `shade`
+   * dims or tints it. Decals go on last, over all the other paint, in
+   * meshes of their own: they blend into what is under them at their
+   * edges, which costs a little more to draw (see renderer.js).
+   */
+  function decal(name, x, z, width, length, turn = 0, shade = WHITE) {
+    const tile = tileOf(name);
+    const c = Math.cos(turn);
+    const s = Math.sin(turn);
+    const corner = (a, b) => [x + a * c - b * s, z + a * s + b * c];
+    const w = width / 2;
+    const l = length / 2;
+    pending.push([[corner(-w, -l), corner(w, -l), corner(w, l), corner(-w, l)], {
+      color: shade,
+      glow: 0,
+      tex: [tile.id, -1, 0, 0],
+      uv: [[0, 1], [1, 1], [1, 0], [0, 0]],
+    }]);
+  }
+
   function finish() {
     flush();
+    const first = root.children.length;
+    for (const [points, look] of pending) polygon(points, look);
+    flush();
+    for (const node of root.children.slice(first)) node.soft = true;
     root.updateWorld();
     return root;
   }
 
-  return { polygon, blob, strands, finish, get vertices() { return total; } };
+  return { polygon, blob, strands, decal, finish, get vertices() { return total; } };
 }
 
 function paintRoad(paint, track, road, random) {
@@ -249,6 +283,56 @@ function paintRoad(paint, track, road, random) {
       paint.polygon([at(a, from), at(a, to), at(b, to), at(b, from)], road.chequerLight);
     }
   }
+}
+
+/**
+ * Pictures from the atlas on the road and beside it, as the theme lists
+ * them (`decals`): cracks and drain covers, puddles, drifts of sand over the
+ * edge, paw prints in the snow. Each list is [name, how many, size in metres].
+ *
+ *   road    anywhere on the tarmac, at any angle
+ *   edge    across the edge of the tarmac, lying along the road
+ *   verge   on the shoulder and the ground just past it
+ */
+function scatterDecals(paint, track, decals, random, onSite) {
+  if (!decals) return;
+  const half = track.halfWidth;
+  const free = (index, length = 0) => {
+    for (let k = -2; k <= length + 2; k++) {
+      const i = track.wrap(Math.floor(index + k));
+      if (track.sectionAt(i) || onSite(i) || i < 8 || i > track.count - 6) return false;
+    }
+    return true;
+  };
+  const place = (where, [name, count, size]) => {
+    for (let placed = 0, tries = 0; placed < count && tries < count * 30; tries++) {
+      const index = random() * track.count;
+      if (!free(index, size / track.spacing)) continue;
+      const side = random() < 0.5 ? -1 : 1;
+      let offset;
+      let turn;
+      let width = size;
+      let length = size;
+      const p0 = track.pointAt(index, 0);
+      if (where === 'road') {
+        offset = (random() * 2 - 1) * Math.max(0, half - 2 - size / 2);
+        turn = random() * Math.PI * 2;
+      } else if (where === 'edge') {
+        offset = side * (half - size * 0.12);
+        // Lying along the road, its long side the road's way.
+        turn = -p0.heading;
+        width = size;
+        length = size * 0.5;
+      } else {
+        offset = side * random.range(half + 1.5, track.limit + 5);
+        turn = random() * Math.PI * 2;
+      }
+      const p = track.pointAt(index, track.clamp(index, offset));
+      paint.decal(name, p.x, p.z, width, length, turn);
+      placed++;
+    }
+  };
+  for (const where of ['road', 'edge', 'verge']) for (const entry of decals[where] ?? []) place(where, entry);
 }
 
 /** The arch over the start and finish line. */
@@ -528,6 +612,8 @@ export function buildWorld(theme) {
   if (site) paintSetPieceUnder(site, track, paint, random);
   theme.decorate(tools);
   paintRoad(paint, track, theme.road, random);
+  // Their own dice, so that adding a decal does not move anything else.
+  scatterDecals(paint, track, theme.decals, seeded(theme.seed * 13 + 5), onSite);
   if (site) paintSetPiece(site, track, paint, random);
   const ground = paint.finish();
 

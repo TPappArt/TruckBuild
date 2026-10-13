@@ -31,5 +31,5 @@ export const GAME = {
   // The pictures of the tracks on the track picker are taken once and kept
   // in the browser. Raise this number whenever the tracks change how they
   // look, and every player's pictures are taken again.
-  picturesVersion: 4,
+  picturesVersion: 5,
 };

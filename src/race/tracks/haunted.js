@@ -8,29 +8,29 @@ import { faceted } from '../world.js';
 // The road cuts through its graveyard, where the skeletons are restless
 // and a werewolf hunts.
 
-const earth = material('#2b2a3a', { spec: 0 });
-const wall = material('#4c4460', { spec: 0.05 });
-const wallDark = material('#352f47', { spec: 0.05 });
-const roof = material('#231f33', { spec: 0.1 });
-const wood = material('#5a4335', { spec: 0.05 });
-const woodDark = material('#3a2a22', { spec: 0.05 });
+const earth = material('#2b2a3a', { spec: 0, tex: 'dirt' });
+const wall = material('#4c4460', { spec: 0.05, tex: 'brick' });
+const wallDark = material('#352f47', { spec: 0.05, tex: 'brick' });
+const roof = material('#231f33', { spec: 0.1, tex: 'planks', metres: 1.6 });
+const wood = material('#5a4335', { spec: 0.05, tex: 'planks' });
+const woodDark = material('#3a2a22', { spec: 0.05, tex: 'planks' });
 const iron = material('#1c1a26', { spec: 0.3 });
 const pumpkin = material('#ff8a1f', { spec: 0.2 });
 const candle = material('#ffb347', { glow: 1 });
 const brew = material('#9dff4a', { glow: 1 });
 const windowGlow = material('#ffc24a', { glow: 1 });
-const straw = material('#c9a24e', { spec: 0 });
+const straw = material('#c9a24e', { spec: 0, tex: 'grass' });
 const strawDark = material('#8a6a2e', { spec: 0 });
 const rag = material('#6b3a5c', { spec: 0.05 });
 const hat = material('#1c1a26', { spec: 0.1 });
 const deadGrass = material('#5a5a3a', { spec: 0 });
 const deadGrassPale = material('#7a744a', { spec: 0 });
-const stone = material('#8d8aa0', { spec: 0.05 });
-const stoneDark = material('#6a6780', { spec: 0.05 });
-const hill = material('#1d1b2b', { spec: 0 });
+const stone = material('#8d8aa0', { spec: 0.05, tex: 'stone' });
+const stoneDark = material('#6a6780', { spec: 0.05, tex: 'stone' });
+const hill = material('#1d1b2b', { spec: 0, tex: 'grass', strength: 0.5 });
 const web = material('#d9d6e8', { spec: 0 });
-const soil = material('#3a2a22', { spec: 0 });
-const soilRow = material('#4a362b', { spec: 0 });
+const soil = material('#3a2a22', { spec: 0, tex: 'dirt' });
+const soilRow = material('#4a362b', { spec: 0, tex: 'dirt' });
 const puddle = material('#3a2f6b', { glow: 0.25 });
 
 /** A lantern on a crooked post. About 50 triangles. */
@@ -177,10 +177,10 @@ export const haunted = {
 
   ground: earth,
   road: {
-    surface: material('#5a5876'),
-    shoulder: material('#272536'),
-    wear: material('#46445e'),
-    patch: material('#64627f'),
+    surface: material('#5a5876', { tex: 'cobbles' }),
+    shoulder: material('#272536', { tex: 'dirt' }),
+    wear: material('#46445e', { tex: 'dirt' }),
+    patch: material('#64627f', { tex: 'cobbles' }),
     scuff: material('#3a3850'),
     edge: material('#b4b1cc'),
     kerbA: material('#ff8a1f'),
@@ -190,6 +190,10 @@ export const haunted = {
     chequerLight: material('#f1e9ff'),
   },
   preview: { ground: '#2b2a3a', road: '#5a5876', accent: '#ff8a1f' },
+  decals: {
+    road: [['puddle', 14, 3.2], ['crack', 12, 3]],
+    verge: [['paws', 20, 2.6], ['moss', 12, 3]],
+  },
 
   // Viaducts, cuttings and islands: old stone, candle-lit, with lanterns
   // down the middle.
@@ -199,13 +203,14 @@ export const haunted = {
     trim: material('#ff8a1f', { spec: 0.2 }),
     roof: material('#1c1a26', { spec: 0.05 }),
     lamp: candle,
-    island: material('#30283a', { spec: 0 }),
+    island: material('#30283a', { spec: 0, tex: 'grass' }),
+    graffiti: ['tagBoo', 'cobweb', 'moss', 'tagBoo', 'smiley'],
     arch: roof,
   },
   median: () => lantern(),
 
   paintGround({ paint, random, track }) {
-    const tones = [material('#33304a'), material('#262437'), material('#2f3540'), material('#3a3350')];
+    const tones = ['#33304a', '#262437', '#2f3540', '#3a3350'].map((hex) => material(hex, { tex: 'grass', strength: 0.55 }));
     for (let i = 0; i < 90; i++) {
       paint.blob(random.range(-330, 330), random.range(-330, 330), random.range(14, 44), random.range(8, 22), random.range(0, Math.PI), random.pick(tones));
     }

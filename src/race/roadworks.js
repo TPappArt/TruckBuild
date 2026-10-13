@@ -1,4 +1,5 @@
-import { material } from '../engine/materials.js';
+import { tileOf } from '../engine/atlas.js';
+import { linear, material, texOf } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
 
 // Builds the road wherever it leaves the flat (track.js sections): raised
@@ -24,18 +25,24 @@ const PORTAL = 1.7; // how far a tunnel mouth stands above the ground
 
 /** Colours for a track's roadworks, unless its theme gives its own (`works`). */
 const PLAIN = {
-  wall: material('#8a8780', { spec: 0.05 }),
-  wallDark: material('#5e5c58', { spec: 0.05 }),
+  wall: material('#8a8780', { spec: 0.05, tex: 'concrete' }),
+  wallDark: material('#5e5c58', { spec: 0.05, tex: 'concrete' }),
   trim: material('#f2c230', { spec: 0.2 }),
   roof: material('#3a3b40', { spec: 0.05 }),
   lamp: material('#ffe9a8', { glow: 1 }),
-  island: material('#77736c', { spec: 0 }),
+  island: material('#77736c', { spec: 0, tex: 'concrete' }),
   arch: material('#3a3b40', { spec: 0 }),
 };
 
+// Pictures on the walls (atlas.js), unless a theme gives its own (`works.graffiti`).
+const GRAFFITI = ['tagZap', 'smiley', 'tagVroom', 'bolt', 'star', 'tagFizz', 'crown', 'tagHonk'];
+const PICTURE = { color: linear('#ffffff'), spec: 0.05, shine: 20, glow: 0 };
+const EVERY = 12; // samples between pictures along a wall (a multiple of 4, to miss the arches)
+const LONG = 2; // and how many samples one covers
+
 /** Collects flat polygons in 3D into one mesh, each with its own flat normal. */
 function createMesh() {
-  const data = { positions: [], normals: [], colors: [], params: [], indices: [] };
+  const data = { positions: [], normals: [], colors: [], params: [], texs: [], indices: [] };
   return {
     /**
      * points: corners of a flat convex polygon, [x, y, z] each. `facing` is
@@ -66,14 +73,17 @@ function createMesh() {
         nz = -nz;
       }
       const base = data.positions.length / 3;
-      for (const point of points) {
+      const tex = texOf(look);
+      points.forEach((point, i) => {
         data.positions.push(point[0], point[1], point[2]);
         data.normals.push(nx, ny, nz);
         data.colors.push(look.color[0], look.color[1], look.color[2]);
         // What lies flat is as matt as the paint it joins (world.js), or
         // a viaduct would shine where the road before it does not.
         data.params.push(ny > 0.9 ? 0 : look.spec, look.shine, look.glow);
-      }
+        if (look.uv) data.texs.push(tex[0], -1, look.uv[i][0], look.uv[i][1]);
+        else data.texs.push(tex[0], tex[1], tex[2], tex[3]);
+      });
       for (let i = 1; i < points.length - 1; i++) {
         if (flip) data.indices.push(base, base + i + 1, base + i);
         else data.indices.push(base, base + i, base + i + 1);
@@ -89,6 +99,7 @@ function createMesh() {
         normals: new Float32Array(data.normals),
         colors: new Float32Array(data.colors),
         params: new Float32Array(data.params),
+        texs: new Float32Array(data.texs),
         indices: new Uint16Array(data.indices),
         triangles: data.indices.length / 3,
       };
@@ -114,6 +125,32 @@ export function buildRoadworks(track, theme) {
   const half = track.halfWidth;
   const limit = track.limit;
   const kerbWidth = road.kerbWidth ?? 0.9;
+  const graffiti = (works.graffiti ?? GRAFFITI).map((name) => tileOf(name));
+  let painted = 0;
+  /**
+   * A picture on a wall `offset` metres from the centre line, from sample `a`
+   * to `a + LONG`, between heights `low` and `low + tall`, facing `facing`.
+   * Tags are twice as wide as they are tall; other pictures are square, and
+   * are centred in the space.
+   */
+  const picture = (a, side, offset, low, tall, facing) => {
+    const tile = graffiti[painted++ % graffiti.length];
+    const share = Math.min(1, ((tile.width / tile.height) * tall) / (LONG * track.spacing));
+    const from = a + ((1 - share) * LONG) / 2;
+    const to = from + share * LONG;
+    const height = Math.min(tall, (LONG * track.spacing * share) / (tile.width / tile.height));
+    const top = low + height;
+    // Its left edge is the start of the stretch when seen from in front.
+    const [first, second] = side * (facing === 'out' ? 1 : -1) > 0 ? [from, to] : [to, from];
+    const look = { ...PICTURE, tex: [tile.id, -1, 0, 0], uv: [[0, 1], [1, 1], [1, 0], [0, 0]] };
+    const P2 = (index, y) => {
+      const p = track.pointAt(index, track.clamp(index, side * offset));
+      return [p.x, y, p.z];
+    };
+    const ai = track.wrap(Math.round(a));
+    const out = [-track.tz[ai] * side, 0, track.tx[ai] * side];
+    solid.polygon([P2(first, low), P2(second, low), P2(second, top), P2(first, top)], look, facing === 'out' ? out : out.map((value) => -value));
+  };
 
   /** A point on (or above, or below) the road: sample, metres right of the centre line, height. */
   const P = (index, offset, y) => {
@@ -179,6 +216,8 @@ export function buildRoadworks(track, theme) {
             const top = Math.min(hA, hB) - 1.3;
             if (top > 1.2) face(outer + 0.07, 0, Math.min(top, 4.8), 0, Math.min(top, 4.8), works.arch, outward);
           }
+          // Now and then something sprayed on the wall, between the arches.
+          if (i % EVERY === 3 && i + LONG <= section.length && Math.min(hA, track.heightAt(a + LONG, side)) > 3.2) picture(a, side, outer + 0.1, 0.5, 2.2, 'out');
         }
 
         if (sunk) {
@@ -187,6 +226,8 @@ export function buildRoadworks(track, theme) {
           const bandB = Math.min(-0.6, hB);
           face(limit, hA, Math.max(hA, bandA), hB, Math.max(hB, bandB), works.wall, inward);
           face(limit, Math.max(hA, bandA), Math.max(hA, 0), Math.max(hB, bandB), Math.max(hB, 0), works.wallDark, inward);
+          // Something sprayed on the wall, where it is tall enough to hold it.
+          if (i % EVERY === 6 && i + LONG <= section.length && Math.max(hA, track.heightAt(a + LONG, side)) < -3.4) picture(a, side, limit - 0.1, Math.max(hA, track.heightAt(a + LONG, side)) + 0.6, 2.2, 'in');
           if (!(roofA && roofB)) {
             // Open to the sky: a parapet round the edge of the hole.
             const deep = Math.min(hA, hB) < -0.4;

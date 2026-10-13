@@ -1,5 +1,5 @@
 import { bake } from '../engine/bake.js';
-import { material } from '../engine/materials.js';
+import { material, texOf } from '../engine/materials.js';
 import { Node } from '../engine/node.js';
 import { kit, taperTop } from '../parts/kit.js';
 import { barricade, bunting, crate, drum, lampPost } from './dressing.js';
@@ -23,7 +23,7 @@ function once(name, build) {
 
 /** Collects flat-shaded polygons in 3D into one mesh. */
 function createSolid() {
-  const data = { positions: [], normals: [], colors: [], params: [], indices: [] };
+  const data = { positions: [], normals: [], colors: [], params: [], texs: [], indices: [] };
   return {
     /**
      * points: corners of a flat convex polygon. `facing` is roughly the way
@@ -45,6 +45,7 @@ function createSolid() {
         data.normals.push(...n);
         data.colors.push(...look.color);
         data.params.push(look.spec, look.shine, look.glow);
+        data.texs.push(...texOf(look));
       }
       for (let i = 1; i < points.length - 1; i++) {
         if (flip) data.indices.push(base, base + i + 1, base + i);
@@ -58,6 +59,7 @@ function createSolid() {
         normals: new Float32Array(data.normals),
         colors: new Float32Array(data.colors),
         params: new Float32Array(data.params),
+        texs: new Float32Array(data.texs),
         indices: new Uint16Array(data.indices),
         triangles: data.indices.length / 3,
       };
@@ -103,14 +105,14 @@ function along(site, track) {
 // Pyramid Desert: the drive-through pyramid
 // =====================================================================
 
-const sandstone = material('#dcb46c', { spec: 0.05 });
-const shadeStone = material('#8f6f45', { spec: 0.05 });
-const darkStone = material('#6f5536', { spec: 0.05 });
+const sandstone = material('#dcb46c', { spec: 0.05, tex: 'stone' });
+const shadeStone = material('#8f6f45', { spec: 0.05, tex: 'stone' });
+const darkStone = material('#6f5536', { spec: 0.05, tex: 'stone' });
 const gold = material('#ffd65c', { spec: 0.7, shine: 40 });
 const lapis = material('#2f6fd6', { spec: 0.4 });
 const torch = material('#ffb347', { glow: 1 });
-const floorStone = material('#a98a5c', { spec: 0 });
-const floorPale = material('#bfa070', { spec: 0 });
+const floorStone = material('#a98a5c', { spec: 0, tex: 'stone', metres: 2.6 });
+const floorPale = material('#bfa070', { spec: 0, tex: 'stone', metres: 2.6 });
 const plateStone = material('#5a452c', { spec: 0 });
 
 export const HALL = { base: 38, apex: 36, height: 10 };
@@ -185,6 +187,10 @@ function pyramidHall(width) {
     for (const z of [-18, 0, 18]) {
       k.cyl(sandstone, { r: 1.1, len: H, seg: 6, caps: 'none', axis: 'y' }, { at: [side * W, H / 2, z] });
       k.slab(gold, [2.6, 0.5, 2.6], { at: [side * W, H - 0.9, z] });
+    }
+    // Panels of hieroglyphs carved between them, facing the road.
+    for (const z of [-22.5, -13.5, -4.5, 4.5, 13.5, 22.5]) {
+      k.decal('hieroglyphs', [2.2, 4.4], { at: [side * (W - 0.12), 6.4, z], rot: [0, (-side * Math.PI) / 2, 0] });
     }
   }
   return node;
@@ -282,12 +288,12 @@ function paintPyramid(site, track, paint) {
 // Electric Swamp: Thunder Bridge
 // =====================================================================
 
-const iron = material('#4a5266', { spec: 0.4, shine: 30 });
-const ironDark = material('#2f3545', { spec: 0.3 });
+const iron = material('#4a5266', { spec: 0.4, shine: 30, tex: 'metal' });
+const ironDark = material('#2f3545', { spec: 0.3, tex: 'metal' });
 const volt = material('#66f4ff', { glow: 1 });
 const lime = material('#b6ff5c', { glow: 1 });
-const plankA = material('#7a5a3a', { spec: 0.05 });
-const plankB = material('#664a2e', { spec: 0.05 });
+const plankA = material('#7a5a3a', { spec: 0.05, tex: 'planks' });
+const plankB = material('#664a2e', { spec: 0.05, tex: 'planks' });
 const plankGap = material('#3a2a1c', { spec: 0 });
 const plankMoss = material('#4b5a36', { spec: 0 });
 const lake = material('#1a8f8c', { glow: 0.42 });
@@ -295,7 +301,7 @@ const lakeDeep = material('#126a72', { glow: 0.3 });
 const lakeShade = material('#0b3f4a', { glow: 0.1 });
 const lily = material('#5fbf4a', { glow: 0.25 });
 const ripple = material('#7ff0e0', { glow: 0.7 });
-const timber = material('#5a4128', { spec: 0.05 });
+const timber = material('#5a4128', { spec: 0.05, tex: 'bark' });
 
 const TOWER_HEIGHT = 12.5;
 const CURTAIN_TOP = 8.4;
@@ -451,15 +457,15 @@ function paintBridge(site, track, paint) {
 // Snowy Mountains: Avalanche Pass
 // =====================================================================
 
-const snow = material('#f6faff', { spec: 0.2, shine: 20 });
-const grit = material('#9fb2c8', { spec: 0.1 });
-const cliffRock = material('#63728f', { spec: 0.05 });
-const cliffDark = material('#4c5a78', { spec: 0.05 });
-const ice = material('#9fdcff', { spec: 0.9, shine: 70 });
+const snow = material('#f6faff', { spec: 0.2, shine: 20, tex: 'snow' });
+const grit = material('#9fb2c8', { spec: 0.1, tex: 'gravel' });
+const cliffRock = material('#63728f', { spec: 0.05, tex: 'rock' });
+const cliffDark = material('#4c5a78', { spec: 0.05, tex: 'rock' });
+const ice = material('#9fdcff', { spec: 0.9, shine: 70, tex: 'ice' });
 const iceGlow = material('#c9f1ff', { glow: 0.5 });
 const lanePaint = material('#b9dcf7');
 const laneEdge = material('#2f7df2');
-const icePatch = material('#8fa9c4');
+const icePatch = material('#8fa9c4', { tex: 'ice' });
 const flagLooks = ['#e4463a', '#ffc928', '#2f7df2', '#31c45a', '#ffffff'].map((hex) => material(hex, { spec: 0.1 }));
 
 /** A snowball of radius 1, with a few bits stuck in it so that it can be seen to roll. */
@@ -592,26 +598,26 @@ function paintPass(site, track, paint, random) {
 // Haunted Hollow: the manor graveyard
 // =====================================================================
 
-const wall = material('#4c4460', { spec: 0.05 });
-const wallDark = material('#352f47', { spec: 0.05 });
-const roof = material('#231f33', { spec: 0.1 });
+const wall = material('#4c4460', { spec: 0.05, tex: 'brick' });
+const wallDark = material('#352f47', { spec: 0.05, tex: 'brick' });
+const roof = material('#231f33', { spec: 0.1, tex: 'planks', metres: 1.6 });
 const windowGlow = material('#ffc24a', { glow: 1 });
 const windowSick = material('#b6ff5c', { glow: 1 });
-const door = material('#2a1d1d', { spec: 0.1 });
+const door = material('#2a1d1d', { spec: 0.1, tex: 'planks' });
 const wrought = material('#1c1a26', { spec: 0.3 });
-const tomb = material('#8d8aa0', { spec: 0.05 });
-const tombDark = material('#6a6780', { spec: 0.05 });
+const tomb = material('#8d8aa0', { spec: 0.05, tex: 'stone' });
+const tombDark = material('#6a6780', { spec: 0.05, tex: 'stone' });
 const pumpkin = material('#ff8a1f', { spec: 0.2 });
 const pumpkinFace = material('#ffe24a', { glow: 1 });
 const stemGreen = material('#3f8f3a', { spec: 0.1 });
-const graveEarth = material('#30283a', { spec: 0 });
-const graveyardEarth = material('#3b3348', { spec: 0 });
-const graveDirt = material('#2a1f1c', { spec: 0 });
+const graveEarth = material('#30283a', { spec: 0, tex: 'dirt' });
+const graveyardEarth = material('#3b3348', { spec: 0, tex: 'grass', strength: 0.5 });
+const graveDirt = material('#2a1f1c', { spec: 0, tex: 'dirt' });
 const graveRim = material('#5a4335', { spec: 0 });
-const gravel = material('#6b6272', { spec: 0 });
+const gravel = material('#6b6272', { spec: 0, tex: 'gravel' });
 const leafLooks = [material('#c9651c'), material('#8a3f16'), material('#d9a21c')];
 const ghostGlow = material('#d8fff0', { glow: 0.9 });
-const barkDark = material('#231d2b', { spec: 0.05 });
+const barkDark = material('#231d2b', { spec: 0.05, tex: 'bark' });
 
 /** A jack-o'-lantern, face toward +z. About 45 triangles. */
 export function jackOLantern() {
@@ -676,6 +682,12 @@ function manor() {
   tower.slab(windowSick, [1.2, 1.9, 5.1], { at: [0, 9.2, 0] });
   // Windows of the main block: tall on the ground floor, small above.
   for (const x of [-5.2, -2.6, 2.6]) k.slab(windowGlow, [1.3, 2.4, 9.1], { at: [x, 2.4, -5] });
+  // Cobwebs in the top corners of the downstairs windows, and a word from the neighbours.
+  for (const x of [-5.2, -2.6, 2.6]) {
+    k.decal('cobweb', [1.0, 1.0], { at: [x - 0.15, 3.1, -0.38] });
+    k.decal('cobweb', [1.0, 1.0], { at: [x + 0.15, 3.1, -0.38], scale: [-1, 1, 1] });
+  }
+  k.decal('tagBoo', [4.4, 2.2], { at: [7.6, 2.0, -5], rot: [0, Math.PI / 2, 0] });
   for (const x of [-5.2, -2.6, 0, 2.6]) k.slab(x === 0 ? windowSick : windowGlow, [1.1, 1.5, 9.1], { at: [x, 6.8, -5] });
   k.slab(windowGlow, [7.1, 1.6, 1.2], { at: [-10.2, 3.4, -4.5] });
   // Door, steps and a porch on two posts.
@@ -870,30 +882,30 @@ function paintGraveyard(site, track, paint, random) {
 // Zombie City: the ruined street
 // =====================================================================
 
-const concrete = material('#8a8780', { spec: 0.05 });
-const concreteDark = material('#5e5c58', { spec: 0.05 });
-const brick = material('#7a4a3a', { spec: 0.05 });
-const brickDark = material('#56342a', { spec: 0.05 });
+const concrete = material('#8a8780', { spec: 0.05, tex: 'concrete' });
+const concreteDark = material('#5e5c58', { spec: 0.05, tex: 'concrete' });
+const brick = material('#7a4a3a', { spec: 0.05, tex: 'brick' });
+const brickDark = material('#56342a', { spec: 0.05, tex: 'brick' });
 const glassDark = material('#23303a', { spec: 0.6, shine: 40 });
 const glassLit = material('#ffc56a', { glow: 0.9 });
-const rust = material('#9a4f2a', { spec: 0.2 });
-const rustDark = material('#5e3320', { spec: 0.2 });
+const rust = material('#9a4f2a', { spec: 0.2, tex: 'metal', strength: 0.6 });
+const rustDark = material('#5e3320', { spec: 0.2, tex: 'metal', strength: 0.6 });
 const hazard = material('#f2c230', { spec: 0.2 });
 const hazardDark = material('#23252b', { spec: 0.1 });
 const fireGlow = material('#ff9a2e', { glow: 1 });
 const toxic = material('#9dff4a', { glow: 0.9 });
-const pavement = material('#6e6c68', { spec: 0 });
-const pavementDark = material('#5a5855', { spec: 0 });
+const pavement = material('#6e6c68', { spec: 0, tex: 'concrete', metres: 2 });
+const pavementDark = material('#5a5855', { spec: 0, tex: 'concrete', metres: 2 });
 const crack = material('#2b2a2c', { spec: 0 });
 const zebra = material('#d9d6cc', { spec: 0 });
-const rubble = material('#7d7a74', { spec: 0 });
+const rubble = material('#7d7a74', { spec: 0, tex: 'rock' });
 
 /**
  * A ruined building. `floors` storeys of 3.2 m; the top is broken off at an
  * angle. Rows of windows are single slabs that poke through every wall, so
  * four walls of windows cost twelve triangles a storey.
  */
-export function ruin(wide, deep, floors, body, trim, lit) {
+export function ruin(wide, deep, floors, body, trim, lit, tags = []) {
   const k = kit();
   const height = floors * 3.2;
   k.slab(body, [wide, height, deep], { at: [0, height / 2, 0] });
@@ -913,6 +925,23 @@ export function ruin(wide, deep, floors, body, trim, lit) {
   k.slab(trim, [wide * 0.5, 2.6, deep * 0.9], { at: [-wide * 0.25, height + 1, 0], rot: [0, 0, 0.12] });
   k.slab(body, [wide * 0.28, 4.4, deep * 0.5], { at: [wide * 0.3, height + 1.6, -deep * 0.2], rot: [0.06, 0, -0.1] });
   k.slab(rustDark, [0.14, 3.4, 0.14], { at: [wide * 0.05, height + 2.6, deep * 0.3], rot: [0.2, 0, 0.3] });
+  // Graffiti at street level, between the piers: on the front, then the
+  // right side, the back, the left side, and round again (null: none there).
+  const bay = wide / piers;
+  tags.forEach((name, i) => {
+    if (!name) return;
+    const face = i % 4;
+    const across = face % 2 === 0; // on the front or back, rather than a side
+    const room = across ? bay - 0.9 : deep / 2 - 0.8;
+    const tall = Math.min(name.startsWith('tag') ? 1.7 : 2.4, room / (name.startsWith('tag') ? 2 : 1));
+    const size = [name.startsWith('tag') ? tall * 2 : tall, tall];
+    const shift = (Math.floor(i / 4) % 2 ? 1 : -1) * (across ? bay / 2 : deep / 4);
+    if (face === 0) k.decal(name, size, { at: [shift, 1.5, deep / 2 + 0.16] });
+    if (face === 2) k.decal(name, size, { at: [-shift, 1.5, -deep / 2 - 0.16], rot: [0, Math.PI, 0] });
+    // (The end piers make up the whole of each side, and stand out 0.35.)
+    if (face === 1) k.decal(name, size, { at: [wide / 2 + 0.4, 1.5, shift], rot: [0, Math.PI / 2, 0] });
+    if (face === 3) k.decal(name, size, { at: [-wide / 2 - 0.4, 1.5, -shift], rot: [0, -Math.PI / 2, 0] });
+  });
   return k.node;
 }
 
@@ -936,11 +965,15 @@ export function fireDrum() {
 }
 
 /** A concrete barrier with hazard stripes. Runs along z. 48 triangles. */
-export function jersey() {
+export function jersey(tag = null) {
   const k = kit();
   k.slab(concrete, [0.7, 0.5, 3.6], { at: [0, 0.25, 0] });
   k.slab(concrete, [0.34, 0.6, 3.6], { at: [0, 0.8, 0] });
   for (const z of [-1.2, 0, 1.2]) k.slab(z ? hazard : hazardDark, [0.38, 0.3, 0.7], { at: [0, 0.86, z] });
+  // A tag sprayed along both faces.
+  if (tag) {
+    for (const side of [1, -1]) k.decal(tag, [2.2, 0.55], { at: [side * 0.36, 0.3, 0], rot: [0, (side * Math.PI) / 2, 0] });
+  }
   return k.node;
 }
 
@@ -977,12 +1010,13 @@ function buildStreet(site, track, add, random) {
   const middle = road.length / 2;
 
   // Buildings shoulder to shoulder down both sides.
+  // (Their +x side faces the road: that is where the graffiti goes.)
   const kinds = [
-    ruin(11, 9, 4, brick, brickDark, 1),
-    ruin(13, 10, 7, concrete, concreteDark, 4),
-    ruin(9, 9, 3, concreteDark, concrete, -1),
-    ruin(12, 10, 5, brick, concreteDark, 2),
-    ruin(10, 9, 9, concrete, concreteDark, 6),
+    ruin(11, 9, 4, brick, brickDark, 1, [null, 'tagZap', null, null, null, 'smiley']),
+    ruin(13, 10, 7, concrete, concreteDark, 4, [null, 'poster', null, null, null, 'tagVroom']),
+    ruin(9, 9, 3, concreteDark, concrete, -1, [null, 'tagHonk']),
+    ruin(12, 10, 5, brick, concreteDark, 2, [null, 'crown', null, null, null, 'tagFizz']),
+    ruin(10, 9, 9, concrete, concreteDark, 6, [null, 'tagBoo', null, null, null, 'poster']),
   ];
   for (const side of [1, -1]) {
     let n = side > 0 ? 0 : 2;
@@ -1005,12 +1039,12 @@ function buildStreet(site, track, add, random) {
   add(skybridge(track.limit + 5), mid.x, mid.z, mid.heading);
 
   // Concrete barriers along both kerbs, some knocked out of line.
-  const barrier = jersey();
+  const barriers = [jersey(), jersey(), jersey('tagZap'), jersey(), jersey('tagFizz')];
   for (const side of [1, -1]) {
     for (let i = 1; i < road.length; i += 2) {
       if (random() < 0.12) continue;
       const p = road.point(i, side * (track.limit + 0.9));
-      add(barrier, p.x, p.z, p.heading + (random() < 0.15 ? random.range(-0.5, 0.5) : 0));
+      add(barriers[i % barriers.length], p.x, p.z, p.heading + (random() < 0.15 ? random.range(-0.5, 0.5) : 0));
     }
   }
 

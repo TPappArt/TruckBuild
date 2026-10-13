@@ -1811,14 +1811,14 @@ body[data-screen='intro'] #start-button {
 
 #start-title svg {
   display: block;
-  width: min(92vw, 47vh * 980 / 430, 760px);
+  width: min(92vw, 50vh * 1000 / 470, 780px);
   height: auto;
   overflow: visible;
 }
 
 #start-title svg + svg {
   display: none;
-  width: min(84vw, 44vh * 640 / 670, 520px);
+  width: min(90vw, 46vh, 520px);
 }
 
 @media (max-aspect-ratio: 1/1) {

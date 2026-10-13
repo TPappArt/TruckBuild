@@ -6,23 +6,23 @@ import { faceted } from '../world.js';
 // Pyramid Desert: a fast, flowing circuit between the pyramids.
 // The road runs through the Great Pyramid, where the mummies are.
 
-const stone = material('#dcb46c', { spec: 0.05 });
-const stoneDark = material('#b98d52', { spec: 0.05 });
+const stone = material('#dcb46c', { spec: 0.05, tex: 'stone' });
+const stoneDark = material('#b98d52', { spec: 0.05, tex: 'stone' });
 const gold = material('#ffd65c', { spec: 0.7, shine: 40 });
-const trunk = material('#8c633a', { spec: 0.05 });
+const trunk = material('#8c633a', { spec: 0.05, tex: 'bark' });
 const trunkRing = material('#6f4c2a', { spec: 0.05 });
-const leaf = material('#3fae53', { spec: 0.15 });
-const leafDark = material('#2f8f45', { spec: 0.15 });
+const leaf = material('#3fae53', { spec: 0.15, tex: 'leaves' });
+const leafDark = material('#2f8f45', { spec: 0.15, tex: 'leaves' });
 const coconut = material('#5a3f26', { spec: 0.1 });
 const cactusGreen = material('#4fa35c', { spec: 0.12 });
 const cactusFlower = material('#ff6fae', { spec: 0.2 });
-const rock = material('#b99a76', { spec: 0.05 });
+const rock = material('#b99a76', { spec: 0.05, tex: 'rock' });
 const dryGrass = material('#c9a24e', { spec: 0 });
 const dryGrassPale = material('#e0c477', { spec: 0 });
 const water = material('#3fb7d9', { glow: 0.25 });
 const waterRim = material('#7fcf8a');
-const paving = material('#cfa868', { spec: 0 });
-const pit = material('#7a5a34', { spec: 0 });
+const paving = material('#cfa868', { spec: 0, tex: 'stone', metres: 2.4 });
+const pit = material('#7a5a34', { spec: 0, tex: 'dirt' });
 const pitDeep = material('#4a3520', { spec: 0 });
 const clay = material('#c9653a', { spec: 0.2 });
 const red = material('#e4463a', { spec: 0.2 });
@@ -165,12 +165,12 @@ export const desert = {
   // [metres right of the road, metres along it, metres up], and what it looks at.
   cinematic: { eye: [-34, -82, 13], target: [4, -20, 7], fov: 0.95, cars: -58 },
 
-  ground: material('#e8c27a'),
+  ground: material('#e8c27a', { tex: 'sand' }),
   road: {
-    surface: material('#70605a'),
-    shoulder: material('#d3a962'),
-    wear: material('#e2bd78'),
-    patch: material('#796962'),
+    surface: material('#70605a', { tex: 'asphalt' }),
+    shoulder: material('#d3a962', { tex: 'gravel', strength: 0.45 }),
+    wear: material('#e2bd78', { tex: 'sand' }),
+    patch: material('#796962', { tex: 'asphalt' }),
     scuff: material('#5b4d48'),
     edge: material('#f3e2b4'),
     kerbA: material('#e4463a'),
@@ -179,17 +179,22 @@ export const desert = {
     chequerDark: material('#2b2a33'),
     chequerLight: material('#f6f1e4'),
   },
+  decals: {
+    road: [['crack', 12, 3]],
+    edge: [['drift', 26, 7]],
+  },
   preview: { ground: '#e8c27a', road: '#70605a', accent: '#e4463a' },
 
   // Viaducts, cuttings and islands: sandstone, with torches in the tunnels
   // and palms down the middle.
   works: {
-    wall: material('#cfa35f', { spec: 0.05 }),
+    wall: material('#cfa35f', { spec: 0.05, tex: 'stone' }),
     wallDark: stoneDark,
     trim: gold,
     roof: material('#6f5536', { spec: 0.05 }),
     lamp: material('#ffb347', { glow: 1 }),
-    island: material('#e8c27a', { spec: 0 }),
+    island: material('#e8c27a', { spec: 0, tex: 'sand' }),
+    graffiti: ['hieroglyphs', 'hieroglyphs', 'tagZap', 'hieroglyphs', 'star'],
     arch: material('#7a5d3a', { spec: 0 }),
   },
   // Small palms: a full-size one would hang its fronds over the lanes.
@@ -197,7 +202,7 @@ export const desert = {
   medianScale: 0.7,
 
   paintGround({ paint, random, track }) {
-    const tones = [material('#f1d08d'), material('#dfb46c'), material('#ecc884')];
+    const tones = ['#f1d08d', '#dfb46c', '#ecc884'].map((hex) => material(hex, { tex: 'sand' }));
     for (let i = 0; i < 90; i++) {
       paint.blob(
         random.range(-330, 330),
@@ -209,7 +214,7 @@ export const desert = {
       );
     }
     // Ripples in the sand: long thin crescents, all lying the same way.
-    const ripple = material('#d9b168');
+    const ripple = material('#d9b168', { tex: 'sand' });
     for (let i = 0; i < 260; i++) {
       paint.blob(random.range(-260, 260), random.range(-260, 260), random.range(3, 9), random.range(0.18, 0.4), 0.5 + random.range(-0.2, 0.2), ripple, 6);
     }
